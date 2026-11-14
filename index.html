@@ -2432,22 +2432,7 @@ function renderSuministros(){
    }).length,
    "Parcial"
   ],
-  [
-   "Remitos por conciliar",
-   todos.filter(x=>{
-    const c=cantidades(x);
-    return c.sinDocumentar>0||
-     c.excesoDocumentado>0;
-   }).length,
-   "Revisar remitos"
-  ],
-  [
-   "Ausentes del Excel",
-   S.suministros.filter(x=>
-    x.presente_ultima_importacion===false
-   ).length,
-   "Ausente del Excel"
-  ]
+ 
  ];
 
  $("segKpis").innerHTML=indicadores.map(

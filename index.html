@@ -248,6 +248,7 @@ td{
 }
 
 tr:hover{background:#f8fafc}
+
 .code{font-weight:600;white-space:nowrap}
 
 .badge{
@@ -264,6 +265,37 @@ tr:hover{background:#f8fafc}
 .presentado{background:#dff3e8;color:#206d49}
 .plazo,.sinfecha{background:#edf0f4;color:#526174}
 .detail{background:#edf3f7;border:0;color:#365774}
+
+/* ESTADOS DE SUMINISTROS */
+
+.pendiente-gestion{
+ background:#fff0d7;
+ color:#946017;
+}
+
+.solped-generada{
+ background:#e3edf8;
+ color:#375c7a;
+}
+
+.ac-emitida{
+ background:#dff3e8;
+ color:#206d49;
+}
+
+.fila-excel{
+ font-size:11px;
+ color:var(--muted);
+}
+
+.import-warning{
+ background:#fff7e9;
+ border:1px solid #ead5ad;
+ border-radius:9px;
+ padding:13px;
+ color:#835d1e;
+ margin:12px 0;
+}
 
 .overlay{
  position:fixed;
@@ -701,8 +733,9 @@ tr:hover{background:#f8fafc}
   <div>
    <h2>Suministros · PO# 11</h2>
    <p class="note">
-    SOLPED y avisos de compra agrupados;
-    alertas calculadas por posición de AC.
+    Seguimiento de necesidades de materiales,
+    SOLPED, acuerdos de compra y entregas.
+    Alertas calculadas por posición de AC.
    </p>
   </div>
 
@@ -722,6 +755,27 @@ tr:hover{background:#f8fafc}
    Los remitos documentan ese total y no lo incrementan.
    Las recepciones y adjuntos registrados no se eliminan.
   </p>
+
+  <div class="import-warning">
+   <strong>Identificación de suministros por fila</strong>
+   <p>
+    Cada fila de la hoja Suministros representa
+    una necesidad de material.
+   </p>
+   <p>
+    Al importar nuevamente el Excel, las filas
+    existentes se actualizan aunque se haya
+    incorporado una SOLPED o AC.
+   </p>
+   <p>
+    Se permite agregar filas nuevas al final.
+    No insertar, eliminar ni reordenar filas existentes.
+   </p>
+   <p>
+    Los suministros sin SOLPED ni AC también
+    se importan como pendientes de gestión.
+   </p>
+  </div>
 
   <p class="note">
    Las actividades de Seguimiento diario no actualizan
@@ -802,6 +856,11 @@ tr:hover{background:#f8fafc}
     a la fila inmediatamente superior.
     Se habilitan al finalizar la actividad previa.
    </p>
+
+   <p class="note">
+    La finalización de actividades no modifica
+    automáticamente los suministros.
+   </p>
   </div>
 
   <button onclick="loadExtra()">
@@ -850,7 +909,7 @@ tr:hover{background:#f8fafc}
  </div>
 </div>
 
-<!-- CONEXIÓN SUPABASE Y FUNCIONES GENERALES -->
+<!-- EL JAVASCRIPT CONTINÚA EN LA PARTE 4 -->
 
 <script>
 
@@ -1005,7 +1064,6 @@ async function login(){
 
  await initialize();
 }
-
 
 async function logout(){
  await db.auth.signOut();
@@ -1423,9 +1481,15 @@ function leerHoja(hoja){
   );
 
  return matriz.slice(indice+1)
-  .filter(f=>f.some(v=>String(v??"").trim()))
-  .map(f=>{
-   const objeto={};
+  .map((f,i)=>({
+   f,
+   filaExcel:indice+i+2
+  }))
+  .filter(({f})=>
+   f.some(v=>String(v??"").trim())
+  )
+  .map(({f,filaExcel})=>{
+   const objeto={_fila_excel:filaExcel};
 
    nombres.forEach((n,i)=>{
     if(n) objeto[n]=f[i]??"";
@@ -1511,6 +1575,7 @@ function combinarDatos(anterior,nuevo){
 
 async function loadExtra(){
  try{
+  S.cargado=false;
   const [s,a,r,f]=await Promise.all([
    obtenerTodos("seg_suministros"),
    obtenerTodos("seg_actividades","orden"),
@@ -1536,7 +1601,7 @@ async function loadExtra(){
 }
 
 /* ============================================
-   IMPORTACIÓN CON VISTA PREVIA DETALLADA
+   IMPORTACIÓN CON IDENTIFICACIÓN POR FILA
 ============================================ */
 
 async function importSeguimiento(){
@@ -1559,38 +1624,78 @@ async function importSeguimiento(){
     "Faltan las hojas Suministros o Seguimiento."
    );
 
+  S.cargado=false;
   await loadExtra();
+
+  if(!S.cargado)
+   throw Error(
+    "No se pudieron cargar los datos actuales."
+   );
 
   const filas=leerHoja(wb.Sheets.Suministros);
   const tareas=leerHoja(wb.Sheets.Seguimiento);
 
-  const actuales=new Map();
+  /* ==========================================
+     ÍNDICES DE SUMINISTROS EXISTENTES
+  ========================================== */
+
+  const porFila=new Map();
+  const porClave=new Map();
+  const conflictos=[];
 
   for(const x of S.suministros){
-   const k=claveSuministro(x.datos);
+   const n=Number(x.datos?.fila_excel);
 
-   if(!actuales.has(k))
-    actuales.set(k,[]);
+   if(Number.isInteger(n)&&n>0){
+    if(porFila.has(n)){
+     conflictos.push(
+      "Dos suministros existentes tienen fila "+n
+     );
+    }else{
+     porFila.set(n,x);
+    }
+   }
 
-   actuales.get(k).push(x);
+   const d=x.datos||{};
+
+   const claves=[
+    d.sp&&d.ps?
+     clavePartes("SP",d.sp,d.ps):null,
+
+    d.ac&&d.pa?
+     clavePartes("AC",d.ac,d.pa):null
+   ].filter(Boolean);
+
+   for(const k of claves){
+    if(!porClave.has(k))
+     porClave.set(k,[]);
+
+    porClave.get(k).push(x);
+   }
   }
+
+  /* ==========================================
+     PROCESAMIENTO DE SUMINISTROS
+  ========================================== */
 
   const propuestos=[];
   const vistos=new Set();
-  const conflictos=[];
+  const idsUsados=new Set();
 
-  // CONTADORES DE EXCLUSIONES
   let anuladas=0;
   let otrasPO=0;
-  let sinSolpedNiAC=0;
+  let pendientesGestion=0;
   let sinPosicion=0;
+  let vinculadosHistoricos=0;
 
   for(const r of filas){
+   const filaExcel=Number(r._fila_excel);
+
    const po=String(campo(
     r,"#PO - Pedido Obr","PO","Pedido Obra"
    )).trim();
 
-   if(po&&po!=="11"){
+   if(po&&!/^#?\s*po\s*#?\s*0*11$/i.test(po)&&!/^0*11$/.test(po)){
     otrasPO++;
     continue;
    }
@@ -1610,6 +1715,7 @@ async function importSeguimiento(){
 
    const d={
     po:"11",
+    fila_excel:filaExcel,
 
     ri:String(campo(
      r,"RI","Requisición de Ingeniería"
@@ -1650,7 +1756,8 @@ async function importSeguimiento(){
     )),
 
     fecha_entrega:parseFecha(campo(
-     r,"Fecha Entrega según AC","Fecha de entrega"
+     r,"Fecha Entrega según AC",
+     "Fecha de entrega"
     )),
 
     estado_ac:String(campo(
@@ -1668,49 +1775,144 @@ async function importSeguimiento(){
     )).trim()
    };
 
-   if(!d.sp&&!d.ac){
-    sinSolpedNiAC++;
-    continue;
-   }
+   /* Sin SOLPED ni AC también se importa */
 
-   if((!d.sp||!d.ps)&&(!d.ac||!d.pa)){
+   if(!d.sp&&!d.ac)
+    pendientesGestion++;
+
+   if((d.sp&&!d.ps)||(d.ac&&!d.pa))
     sinPosicion++;
 
+   if(!d.descripcion&&!d.codigo&&
+      !d.ri&&!d.sp&&!d.ac){
     conflictos.push(
-     "Sin posición identificable: "+
-     (d.descripcion||"Sin descripción")
+     "Fila "+filaExcel+
+     ": sin información identificable"
     );
-
     continue;
    }
 
-   const k=claveSuministro(d);
-
-   if(vistos.has(k)){
-    conflictos.push("Duplicado: "+k);
+   if(vistos.has(filaExcel)){
+    conflictos.push(
+     "Fila repetida: "+filaExcel
+    );
     continue;
    }
 
-   vistos.add(k);
+   vistos.add(filaExcel);
 
-   const coincidencias=actuales.get(k)||[];
+   /* Primero buscar por número de fila */
 
-   if(coincidencias.length>1){
-    conflictos.push("Coincidencia ambigua: "+k);
+   let previo=porFila.get(filaExcel)||null;
+
+   if(previo){
+    const old=previo.datos||{};
+
+    if(old.codigo&&d.codigo&&
+       normalizarTexto(old.codigo)!==
+       normalizarTexto(d.codigo)){
+     conflictos.push(
+      "Fila "+filaExcel+
+      ": cambió el código SAP; "+
+      "revisar desplazamiento de filas"
+     );
+     continue;
+    }
+
+    if(!old.codigo&&old.descripcion&&
+       d.descripcion&&
+       normalizarTexto(old.descripcion)!==
+       normalizarTexto(d.descripcion)){
+     conflictos.push(
+      "Fila "+filaExcel+
+      ": cambió la descripción; "+
+      "revisar desplazamiento de filas"
+     );
+     continue;
+    }
+
+   }else{
+
+    /* Migración de registros anteriores:
+       buscar por SOLPED/posición o AC/posición */
+
+    const candidatos=new Map();
+
+    const claves=[
+     d.sp&&d.ps?
+      clavePartes("SP",d.sp,d.ps):null,
+
+     d.ac&&d.pa?
+      clavePartes("AC",d.ac,d.pa):null
+    ].filter(Boolean);
+
+    for(const k of claves){
+     for(const x of porClave.get(k)||[]){
+      candidatos.set(x.id,x);
+     }
+    }
+
+    if(candidatos.size>1){
+     conflictos.push(
+      "Fila "+filaExcel+
+      ": varias coincidencias históricas"
+     );
+     continue;
+    }
+
+    if(candidatos.size===1){
+     const x=[...candidatos.values()][0];
+     const anteriorFila=x.datos?.fila_excel==null?
+     null:Number(x.datos.fila_excel);
+
+     if(Number.isInteger(anteriorFila)&&
+        anteriorFila>0&&
+        anteriorFila!==filaExcel){
+      conflictos.push(
+       "Fila "+filaExcel+
+       ": la posición ya pertenece a fila "+
+       anteriorFila
+      );
+      continue;
+     }
+
+     if(x.datos?.codigo&&d.codigo&&
+        normalizarTexto(x.datos.codigo)!==normalizarTexto(d.codigo)){
+      conflictos.push("Fila "+filaExcel+": código SAP incompatible con registro histórico");
+      continue;
+     }
+     previo=x;
+     vinculadosHistoricos++;
+    }
+   }
+
+   /* Conservar el ID original */
+
+   const id=previo?.id||
+    "sum-PO11-FILA-"+filaExcel;
+
+   if(idsUsados.has(id)){
+    conflictos.push(
+     "Fila "+filaExcel+
+     ": mismo suministro detectado dos veces"
+    );
     continue;
    }
 
-   const previo=coincidencias[0];
+   idsUsados.add(id);
+
+   /* Los datos del Excel reemplazan sus campos,
+      incluso cuando se borra una SOLPED o AC.
+      El ID del registro permanece intacto. */
+
+   const datos={
+    ...(previo?.datos||{}),
+    ...d
+   };
 
    propuestos.push({
-    id:previo?.id||"sum-"+k,
-
-    datos:{
-     ...combinarDatos(previo?.datos,d),
-     entregado_excel:d.entregado_excel,
-     pedido:d.pedido
-    },
-
+    id,
+    datos,
     presente_ultima_importacion:true,
     previo
    });
@@ -1724,7 +1926,7 @@ async function importSeguimiento(){
   if(conflictos.length)
    throw Error(
     "Importación detenida: "+
-    conflictos.slice(0,5).join("; ")
+    conflictos.slice(0,8).join("; ")
    );
 
   /* ==========================================
@@ -1738,7 +1940,6 @@ async function importSeguimiento(){
   const propuestasTareas=[];
   const ocurrencias=new Map();
 
-  // CONTADORES DE ACTIVIDADES
   let actividadesIniciales=0;
   let actividadesDesencadenadas=0;
   let actividadesSinTema=0;
@@ -1765,7 +1966,7 @@ async function importSeguimiento(){
 
    if(dependiente&&!anterior){
     conflictos.push(
-     "Fila "+(i+2)+
+     "Fila "+r._fila_excel+
      ": Desencadena sin actividad superior."
     );
     continue;
@@ -1798,7 +1999,9 @@ async function importSeguimiento(){
     po,responsable,tema
    );
 
-   const ocurrencia=(ocurrencias.get(base)||0)+1;
+   const ocurrencia=
+    (ocurrencias.get(base)||0)+1;
+
    ocurrencias.set(base,ocurrencia);
 
    const d={
@@ -1810,7 +2013,8 @@ async function importSeguimiento(){
     importancia:String(campo(
      r,"Importancia","Prioridad"
     )).trim()||
-     (dependiente?anterior.datos.importancia:""),
+     (dependiente?
+      anterior.datos.importancia:""),
 
     consultar:String(campo(
      r,"Consultar"
@@ -1835,17 +2039,20 @@ async function importSeguimiento(){
    };
 
    const k=claveActividad(d);
-   const id="act-"+k;
+   const id="act-PO11-FILA-"+r._fila_excel;
 
-   const previo=actualesTareas.get(id);
+   const previo=actualesTareas.get(id)||actualesTareas.get("act-"+k);
 
    const propuesta={
-    id,
+    id:previo?.id||id,
     orden:i+1,
-    datos:combinarDatos(previo?.datos,d),
+
+    datos:combinarDatos(
+     previo?.datos,d
+    ),
 
     estado:previo?.estado||
-     (dependiente?"Bloqueada":
+     (dependiente&&anterior.estado!=="Finalizado"?"Bloqueada":
       ["Pendiente","En proceso","Finalizado"]
        .includes(d.estatus_excel)?
        d.estatus_excel:"Pendiente"),
@@ -1873,10 +2080,15 @@ async function importSeguimiento(){
     conflictos.join("; ")
    );
 
-  if(!propuestasTareas.length&&S.actividades.length)
+  if(!propuestasTareas.length&&
+     S.actividades.length)
    throw Error(
     "No se reconocieron las actividades existentes."
    );
+
+  /* ==========================================
+     COMPARACIÓN CON SUPABASE
+  ========================================== */
 
   const ids=new Set(
    propuestos.map(x=>x.id)
@@ -1910,14 +2122,15 @@ async function importSeguimiento(){
    JSON.stringify(x.datos)
   ).length;
 
-  const modificadosTareas=propuestasTareas.filter(x=>
-   x.previo&&
-   JSON.stringify(x.previo.datos)!==
-   JSON.stringify(x.datos)
-  ).length;
+  const modificadosTareas=
+   propuestasTareas.filter(x=>
+    x.previo&&
+    JSON.stringify(x.previo.datos)!==
+    JSON.stringify(x.datos)
+   ).length;
 
   const totalExcluidas=
-   anuladas+otrasPO+sinSolpedNiAC+sinPosicion;
+   anuladas+otrasPO;
 
   /* ==========================================
      VISTA PREVIA DE IMPORTACIÓN
@@ -1929,38 +2142,47 @@ async function importSeguimiento(){
    "SUMINISTROS\n"+
    "Filas leídas: "+filas.length+"\n"+
    "Posiciones válidas: "+propuestos.length+"\n"+
-   "SOLPED anuladas excluidas: "+anuladas+"\n"+
+   "Pendientes sin SOLPED ni AC: "+
+    pendientesGestion+"\n"+
+   "Con SOLPED o AC sin posición completa: "+
+    sinPosicion+"\n"+
+   "SOLPED anuladas excluidas: "+
+    anuladas+"\n"+
    "Otras PO excluidas: "+otrasPO+"\n"+
-   "Sin SOLPED ni AC: "+sinSolpedNiAC+"\n"+
-   "Sin posición identificable: "+sinPosicion+"\n"+
    "TOTAL EXCLUIDAS: "+totalExcluidas+"\n\n"+
 
    "Suministros nuevos: "+nuevos+"\n"+
-   "Suministros modificados: "+modificados+"\n"+
-   "Suministros ausentes: "+ausentes.length+"\n\n"+
+   "Suministros modificados: "+
+    modificados+"\n"+
+   "Registros históricos vinculados: "+
+    vinculadosHistoricos+"\n"+
+   "Suministros ausentes: "+
+    ausentes.length+"\n\n"+
 
    "SEGUIMIENTO DIARIO\n"+
    "Filas leídas: "+tareas.length+"\n"+
-   "Actividades iniciales: "+actividadesIniciales+"\n"+
+   "Actividades iniciales: "+
+    actividadesIniciales+"\n"+
    "Actividades desencadenadas: "+
     actividadesDesencadenadas+"\n"+
-   "Actividades sin tema: "+actividadesSinTema+"\n"+
+   "Actividades sin tema: "+
+    actividadesSinTema+"\n"+
    "Total de actividades: "+
     propuestasTareas.length+"\n\n"+
 
-   "Actividades nuevas: "+nuevosTareas+"\n"+
+   "Actividades nuevas: "+
+    nuevosTareas+"\n"+
    "Actividades modificadas: "+
     modificadosTareas+"\n"+
    "Actividades ausentes: "+
     ausentesTareas.length+"\n\n"+
 
-   "Las actividades desencadenadas se guardarán "+
-   "bloqueadas hasta finalizar la anterior.\n\n"+
-
-   "Seguimiento diario NO modifica automáticamente "+
-   "la tabla de Suministros.\n\n"+
+   "Seguimiento diario NO modifica "+
+   "automáticamente Suministros.\n\n"+
 
    "Los registros ausentes se conservarán.\n"+
+   "ATENCIÓN: el guardado no es una "+
+   "transacción atómica.\n\n"+
    "¿Confirmar importación?";
 
   if(!confirm(resumen)){
@@ -1971,6 +2193,7 @@ async function importSeguimiento(){
 
   /* ==========================================
      GUARDADO EN SUPABASE
+     CONTINÚA EN PARTE 3C
   ========================================== */
 
   const {data:imp,error:impError}=await db
@@ -2081,11 +2304,6 @@ async function importSeguimiento(){
 
 /* ============================================
    ENTREGAS Y ALERTAS
-   CONTINÚA EN LA PARTE 3
-============================================ */
-
-/* ============================================
-   ENTREGAS Y ALERTAS
 ============================================ */
 
 function recepcionesDe(id){
@@ -2124,6 +2342,9 @@ function alertaSuministro(item){
 
  if(c.excesoDocumentado>0.000001)
   return "Revisar remitos";
+
+ if(!d.sp&&!d.ac)
+  return "Pendiente de gestión";
 
  if(!d.ac)
   return "Sin AC";
@@ -2169,6 +2390,11 @@ function renderSuministros(){
    "Posiciones",
    todos.length,
    "todos"
+  ],
+  [
+   "Pendientes de gestión",
+   todos.filter(x=>!x.datos.sp&&!x.datos.ac).length,
+   "Pendiente de gestión"
   ],
   [
    "AC únicas",
@@ -2252,7 +2478,8 @@ function renderSuministros(){
    d.codigo,
    d.descripcion,
    d.proveedor,
-   d.ri
+   d.ri,
+   d.fila_excel
   ].join(" "));
 
   const c=cantidades(x);
@@ -2316,7 +2543,8 @@ function renderSuministros(){
     )}</strong>
 
     <p class="note">
-     SOLPED ${escapeHtml(d.sp||"—")}
+     Fila Excel: ${escapeHtml(d.fila_excel||"—")}
+     · SOLPED ${escapeHtml(d.sp||"—")}
      · Pos. ${escapeHtml(d.ps||"—")}
      · AC ${escapeHtml(d.ac||"—")}
      · Pos. ${escapeHtml(d.pa||"—")}
@@ -2407,6 +2635,7 @@ function renderSuministros(){
 
 /* ============================================
    MODALES
+   CONTINÚA EN LA PARTE 3D
 ============================================ */
 
 function abrirModal(titulo,html){

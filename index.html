@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Seguimiento de Ingeniería | PECOM</title>
+<title>Seguimiento de Proyecto | PECOM</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -21,244 +21,577 @@
  --green:#20815a;
  --blue:#426b91;
 }
+
 *{box-sizing:border-box}
+
 body{
- margin:0;background:var(--bg);color:var(--text);
+ margin:0;
+ background:var(--bg);
+ color:var(--text);
  font:13px Arial,Helvetica,sans-serif;
 }
+
 header{
- background:var(--navy);color:#fff;padding:22px 4%;
- display:flex;justify-content:space-between;align-items:center;gap:15px;
+ background:var(--navy);
+ color:#fff;
+ padding:22px 4%;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:15px;
 }
+
 header h1{font-size:21px;margin:0 0 6px}
 header p{font-size:12px;color:#b9c7d2;margin:0}
-main{max-width:1650px;margin:auto;padding:28px 3%}
-button,input,select{
- font:inherit;border:1px solid var(--line);
- border-radius:8px;padding:11px 13px;background:#fff;color:var(--text);
+
+main{
+ max-width:1650px;
+ margin:auto;
+ padding:28px 3%;
 }
+
+button,input,select{
+ font:inherit;
+ border:1px solid var(--line);
+ border-radius:8px;
+ padding:11px 13px;
+ background:#fff;
+ color:var(--text);
+}
+
 button{cursor:pointer}
 button:hover{filter:brightness(.97)}
 .primary{background:var(--navy);color:white;border:0}
 .hidden{display:none!important}
-.login{
- max-width:420px;margin:75px auto;padding:30px;
- background:white;border:1px solid var(--line);border-radius:12px;
-}
-.login input,.login button{width:100%;margin:10px 0}
 .muted,.note{color:var(--muted)}
 .note{font-size:12px;line-height:1.6}
+
+.login{
+ max-width:420px;
+ margin:75px auto;
+ padding:30px;
+ background:white;
+ border:1px solid var(--line);
+ border-radius:12px;
+}
+
+.login input,.login button{
+ width:100%;
+ margin:10px 0;
+}
+
 .admin{
- background:#edf3f7;border:1px solid #d9e3eb;
- border-radius:11px;padding:20px;margin-bottom:25px;
+ background:#edf3f7;
+ border:1px solid #d9e3eb;
+ border-radius:11px;
+ padding:20px;
+ margin-bottom:25px;
 }
+
 .admin h3{margin:0 0 12px}
+
 .section-title{
- margin:28px 0 13px;font-size:12px;letter-spacing:1.1px;
- font-weight:700;color:#68798a;text-transform:uppercase;
+ margin:28px 0 13px;
+ font-size:12px;
+ letter-spacing:1.1px;
+ font-weight:700;
+ color:#68798a;
+ text-transform:uppercase;
 }
+
 .grid-summary{
- display:grid;grid-template-columns:1fr 1fr;gap:14px;
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:14px;
 }
+
 .grid-alerts{
- display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+ display:grid;
+ grid-template-columns:repeat(4,1fr);
+ gap:14px;
 }
+
 .grid-other{
- display:grid;grid-template-columns:repeat(2,1fr);gap:14px;
+ display:grid;
+ grid-template-columns:repeat(2,1fr);
+ gap:14px;
 }
+
 .card{
- background:#fff;border:1px solid var(--line);
- border-radius:12px;padding:21px;text-align:left;
- min-height:125px;transition:.15s;
+ background:#fff;
+ border:1px solid var(--line);
+ border-radius:12px;
+ padding:21px;
+ text-align:left;
+ min-height:125px;
+ transition:.15s;
 }
+
 .card:hover{
  transform:translateY(-2px);
  box-shadow:0 5px 18px #16263812;
 }
+
 .card.active{
- border:2px solid var(--navy);background:#eef3f7;
+ border:2px solid var(--navy);
+ background:#eef3f7;
 }
-.card small{display:block;color:var(--muted);font-size:12px}
+
+.card small{
+ display:block;
+ color:var(--muted);
+ font-size:12px;
+}
+
 .card strong{
- display:block;font-size:32px;margin:12px 0 7px;
+ display:block;
+ font-size:32px;
+ margin:12px 0 7px;
 }
-.card em{font-style:normal;font-size:11px;color:var(--muted)}
+
+.card em{
+ font-style:normal;
+ font-size:11px;
+ color:var(--muted);
+}
+
 .red strong{color:var(--red)}
 .amber strong{color:var(--amber)}
 .green strong{color:var(--green)}
 .blue strong{color:var(--blue)}
+
 .progress{
- height:9px;background:#e8edf1;border-radius:10px;
- overflow:hidden;margin:14px 0 8px;
+ height:9px;
+ background:#e8edf1;
+ border-radius:10px;
+ overflow:hidden;
+ margin:14px 0 8px;
 }
+
 .progress-fill{
- height:100%;background:var(--green);
- width:0%;transition:width .3s;
+ height:100%;
+ background:var(--green);
+ width:0%;
+ transition:width .3s;
 }
-.progress-label{font-size:12px;color:var(--muted)}
+
+.progress-label{
+ font-size:12px;
+ color:var(--muted);
+}
+
 .alert{
- margin-top:23px;padding:18px;border-radius:10px;
- background:#fff0f0;color:#a32f39;border:1px solid #edc4c8;
+ margin-top:23px;
+ padding:18px;
+ border-radius:10px;
+ background:#fff0f0;
+ color:#a32f39;
+ border:1px solid #edc4c8;
 }
-.alert strong{display:block;margin-bottom:8px}
+
+.alert strong{
+ display:block;
+ margin-bottom:8px;
+}
+
 .toolbar{
- display:flex;gap:10px;flex-wrap:wrap;margin:22px 0;
+ display:flex;
+ gap:10px;
+ flex-wrap:wrap;
+ margin:22px 0;
 }
-.toolbar input{flex:1;min-width:230px}
+
+.toolbar input{
+ flex:1;
+ min-width:230px;
+}
+
 .panel{
- background:#fff;border:1px solid var(--line);
- border-radius:11px;overflow:hidden;margin-top:18px;
+ background:#fff;
+ border:1px solid var(--line);
+ border-radius:11px;
+ overflow:hidden;
+ margin-top:18px;
 }
+
 .panel-head{
- padding:20px;display:flex;justify-content:space-between;
- align-items:center;gap:12px;
+ padding:20px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:12px;
 }
+
 .panel h2{font-size:16px;margin:0}
 .scroll{overflow:auto;max-height:70vh}
-table{border-collapse:collapse;width:100%;font-size:12px}
-th{
- text-align:left;background:#edf1f5;color:#536374;
- padding:13px;white-space:nowrap;position:sticky;top:0;z-index:1;
+
+table{
+ border-collapse:collapse;
+ width:100%;
+ font-size:12px;
 }
-td{padding:13px;border-top:1px solid #edf0f3}
+
+th{
+ text-align:left;
+ background:#edf1f5;
+ color:#536374;
+ padding:13px;
+ white-space:nowrap;
+ position:sticky;
+ top:0;
+ z-index:1;
+}
+
+td{
+ padding:13px;
+ border-top:1px solid #edf0f3;
+}
+
 tr:hover{background:#f8fafc}
 .code{font-weight:600;white-space:nowrap}
+
 .badge{
- display:inline-block;padding:6px 9px;border-radius:5px;
- font-weight:600;white-space:nowrap;
+ display:inline-block;
+ padding:6px 9px;
+ border-radius:5px;
+ font-weight:600;
+ white-space:nowrap;
 }
+
 .vencido{background:#fde6e7;color:#aa2f38}
 .proximo,.alerta15{background:#fff0d7;color:#946017}
 .alerta20{background:#e3edf8;color:#375c7a}
 .presentado{background:#dff3e8;color:#206d49}
 .plazo,.sinfecha{background:#edf0f4;color:#526174}
 .detail{background:#edf3f7;border:0;color:#365774}
+
 .overlay{
- position:fixed;inset:0;background:#14223190;z-index:10;
- display:flex;align-items:center;justify-content:center;padding:20px;
+ position:fixed;
+ inset:0;
+ background:#14223190;
+ z-index:10;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:20px;
 }
+
 .modal{
- background:white;border-radius:13px;padding:25px;
- width:min(640px,100%);max-height:90vh;overflow:auto;
+ background:white;
+ border-radius:13px;
+ padding:25px;
+ width:min(640px,100%);
+ max-height:90vh;
+ overflow:auto;
 }
-.modal-head{display:flex;justify-content:space-between;gap:15px}
+
+.modal-head{
+ display:flex;
+ justify-content:space-between;
+ gap:15px;
+}
+
 .modal h2{font-size:19px;margin:0 0 8px}
 .field{padding:12px 0;border-bottom:1px solid var(--line)}
 .field small{display:block;color:var(--muted);margin-bottom:6px}
 .field strong{font-size:14px}
-@media(max-width:1000px){
- .grid-alerts{grid-template-columns:repeat(2,1fr)}
-}
-@media(max-width:600px){
- header{flex-direction:column;align-items:flex-start}
- .grid-summary,.grid-other,.grid-alerts{
-  grid-template-columns:repeat(2,minmax(0,1fr));
- }
- .toolbar input,.toolbar select{width:100%}
+
+/* PESTAÑAS */
+
+.tabs{
+ display:flex;
+ gap:9px;
+ flex-wrap:wrap;
+ margin-bottom:20px;
 }
 
-/* Nuevos módulos */
-.tabs{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:20px}.main-tab{background:#fff;border:1px solid var(--line);font-weight:700}.main-tab.active{background:var(--navy);color:#fff}
-.seg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.seg-kpis .card{min-height:105px;padding:16px}.seg-kpis .card strong{font-size:26px}
-.seg-layout{display:grid;gap:12px}.supply-card,.task-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px}.supply-card summary{cursor:pointer;list-style:none}.supply-card summary::-webkit-details-marker{display:none}
-.pair{display:grid;grid-template-columns:1fr 1fr;gap:15px}.pair small{display:block;color:var(--muted);margin-bottom:6px}.pair strong{display:block;font-size:21px;overflow-wrap:anywhere;margin-bottom:4px}.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0}.detailRows{padding-top:12px;border-top:1px solid var(--line);margin-top:12px}.material-row{padding:14px 4px;border-bottom:1px solid var(--line)}.material-row:last-child{border:0}.task-card{margin-bottom:12px}
-#extraBody label{display:block;margin:14px 0 6px;font-weight:700}#extraBody input,#extraBody select,#extraBody textarea{width:100%;max-width:100%;font:inherit;border:1px solid var(--line);padding:11px;border-radius:7px}#extraBody textarea{min-height:75px}#extraBody button.primary{margin-top:16px}
-#extraOverlay .modal{width:min(780px,100%)}.seg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-@media(max-width:900px){.seg-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){.pair strong{font-size:16px}.seg-kpis .card strong{font-size:23px}}
+.main-tab{
+ background:#fff;
+ border:1px solid var(--line);
+ font-weight:700;
+}
+
+.main-tab.active{
+ background:var(--navy);
+ color:#fff;
+}
+
+/* SUMINISTROS */
+
+.seg-kpis{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ gap:12px;
+}
+
+.seg-kpis .card{
+ min-height:105px;
+ padding:16px;
+}
+
+.seg-kpis .card strong{font-size:26px}
+.seg-layout{display:grid;gap:12px}
+
+.supply-card,.task-card{
+ background:#fff;
+ border:1px solid var(--line);
+ border-radius:12px;
+ padding:15px;
+}
+
+.supply-card summary{
+ cursor:pointer;
+ list-style:none;
+}
+
+.supply-card summary::-webkit-details-marker{
+ display:none;
+}
+
+.pair{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:15px;
+}
+
+.pair small{
+ display:block;
+ color:var(--muted);
+ margin-bottom:6px;
+}
+
+.pair strong{
+ display:block;
+ font-size:21px;
+ overflow-wrap:anywhere;
+ margin-bottom:4px;
+}
+
+.rowline{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:10px;
+ flex-wrap:wrap;
+ margin:10px 0;
+}
+
+.detailRows{
+ padding-top:12px;
+ border-top:1px solid var(--line);
+ margin-top:12px;
+}
+
+.material-row{
+ padding:14px 4px;
+ border-bottom:1px solid var(--line);
+}
+
+.material-row:last-child{border:0}
+.task-card{margin-bottom:12px}
+
+/* FORMULARIOS */
+
+#extraBody label{
+ display:block;
+ margin:14px 0 6px;
+ font-weight:700;
+}
+
+#extraBody input,
+#extraBody select,
+#extraBody textarea{
+ width:100%;
+ max-width:100%;
+ font:inherit;
+ border:1px solid var(--line);
+ padding:11px;
+ border-radius:7px;
+}
+
+#extraBody textarea{min-height:75px}
+#extraBody button.primary{margin-top:16px}
+#extraOverlay .modal{width:min(780px,100%)}
+
+.seg-head{
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ gap:12px;
+ flex-wrap:wrap;
+}
+
+@media(max-width:1000px){
+ .grid-alerts{
+  grid-template-columns:repeat(2,1fr);
+ }
+}
+
+@media(max-width:900px){
+ .seg-kpis{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+ }
+}
+
+@media(max-width:600px){
+ header{
+  flex-direction:column;
+  align-items:flex-start;
+ }
+
+ .grid-summary,
+ .grid-other,
+ .grid-alerts{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+ }
+
+ .toolbar input,
+ .toolbar select{
+  width:100%;
+ }
+}
+
+@media(max-width:550px){
+ .pair strong{font-size:16px}
+ .seg-kpis .card strong{font-size:23px}
+}
 </style>
 </head>
+
 <body>
 
 <header>
-<div>
-<h1>SEGUIMIENTO DE PROYECTO</h1>
-<p>PECOM · Control documental · PO# 11</p>
-</div>
-<div id="userBar" class="hidden">
-<span id="userEmail"></span>
-<button onclick="logout()">Cerrar sesión</button>
-</div>
+ <div>
+  <h1>SEGUIMIENTO DE PROYECTO</h1>
+  <p>PECOM · Control documental · PO# 11</p>
+ </div>
+
+ <div id="userBar" class="hidden">
+  <span id="userEmail"></span>
+  <button onclick="logout()">Cerrar sesión</button>
+ </div>
 </header>
 
 <section id="login" class="login">
-<h2>Acceso al sistema</h2>
-<p class="muted">Ingresá con tu cuenta autorizada.</p>
-<input id="email" type="email" placeholder="Correo electrónico">
-<input id="password" type="password" placeholder="Contraseña">
-<button class="primary" onclick="login()">Ingresar</button>
-<p id="loginMessage" class="note"></p>
+ <h2>Acceso al sistema</h2>
+ <p class="muted">Ingresá con tu cuenta autorizada.</p>
+
+ <input id="email" type="email"
+  placeholder="Correo electrónico">
+
+ <input id="password" type="password"
+  placeholder="Contraseña">
+
+ <button class="primary" onclick="login()">
+  Ingresar
+ </button>
+
+ <p id="loginMessage" class="note"></p>
 </section>
 
 <main id="dashboard" class="hidden">
-<div class="tabs"><button class="main-tab active" data-tab="ingenieria" onclick="switchTab('ingenieria')">Ingeniería</button><button class="main-tab" data-tab="suministros" onclick="switchTab('suministros')">Suministros</button><button class="main-tab" data-tab="seguimiento" onclick="switchTab('seguimiento')">Seguimiento diario</button></div>
+
+<!-- PESTAÑAS PRINCIPALES -->
+
+<div class="tabs">
+ <button class="main-tab active"
+  data-tab="ingenieria"
+  onclick="switchTab('ingenieria')">
+  Ingeniería
+ </button>
+
+ <button class="main-tab"
+  data-tab="suministros"
+  onclick="switchTab('suministros')">
+  Suministros
+ </button>
+
+ <button class="main-tab"
+  data-tab="seguimiento"
+  onclick="switchTab('seguimiento')">
+  Seguimiento diario
+ </button>
+</div>
+
+<!-- INGENIERÍA -->
+
 <div id="ingenieriaContent">
 
 <section id="adminPanel" class="admin hidden">
-<h3>Administración de documentos</h3>
-<p>Importar listado actualizado de Ingeniería.</p>
-<input id="excel" type="file" accept=".xlsx,.xls">
-<button class="primary" onclick="uploadExcel()">
-Actualizar documentos
-</button>
-<p id="uploadMessage" class="note"></p>
-<p class="note">
-La importación actualiza los documentos existentes y agrega
-los nuevos, sin eliminar automáticamente registros anteriores.
-</p>
+ <h3>Administración de documentos</h3>
+ <p>Importar listado actualizado de Ingeniería.</p>
+
+ <input id="excel" type="file" accept=".xlsx,.xls">
+
+ <button class="primary" onclick="uploadExcel()">
+  Actualizar documentos
+ </button>
+
+ <p id="uploadMessage" class="note"></p>
+
+ <p class="note">
+  La importación actualiza los documentos existentes
+  y agrega los nuevos, sin eliminar automáticamente
+  registros anteriores.
+ </p>
 </section>
 
 <div class="section-title">Resumen general</div>
 
 <div class="grid-summary">
-<button class="card" data-filter="todos"
- onclick="selectCard('todos')">
-<small>Total de documentos</small>
-<strong id="total">0</strong>
-<em>Ver listado completo ↗</em>
-</button>
 
-<button class="card green" data-filter="presentados"
- onclick="selectCard('presentados')">
-<small>Documentos presentados</small>
-<strong id="issued">0</strong>
-<div class="progress">
-<div id="progressFill" class="progress-fill"></div>
-</div>
-<div class="progress-label" id="progressText">0% de avance</div>
-</button>
+ <button class="card" data-filter="todos"
+  onclick="selectCard('todos')">
+  <small>Total de documentos</small>
+  <strong id="total">0</strong>
+  <em>Ver listado completo ↗</em>
+ </button>
+
+ <button class="card green" data-filter="presentados"
+  onclick="selectCard('presentados')">
+  <small>Documentos presentados</small>
+  <strong id="issued">0</strong>
+  <div class="progress">
+   <div id="progressFill" class="progress-fill"></div>
+  </div>
+  <div class="progress-label" id="progressText">
+   0% de avance
+  </div>
+ </button>
+
 </div>
 
 <div class="section-title">Atención prioritaria</div>
 
 <div class="grid-alerts">
 
-<button class="card red" data-filter="vencidos"
- onclick="selectCard('vencidos')">
-<small>Vencidos</small>
-<strong id="overdue">0</strong>
-<em>Requieren acción inmediata ↗</em>
-</button>
+ <button class="card red" data-filter="vencidos"
+  onclick="selectCard('vencidos')">
+  <small>Vencidos</small>
+  <strong id="overdue">0</strong>
+  <em>Requieren acción inmediata ↗</em>
+ </button>
 
-<button class="card amber" data-filter="proximos"
- onclick="selectCard('proximos')">
-<small>Próximos 7 días</small>
-<strong id="upcoming">0</strong>
-<em>Vencimiento inminente ↗</em>
-</button>
+ <button class="card amber" data-filter="proximos"
+  onclick="selectCard('proximos')">
+  <small>Próximos 7 días</small>
+  <strong id="upcoming">0</strong>
+  <em>Vencimiento inminente ↗</em>
+ </button>
 
-<button class="card amber" data-filter="alerta15"
- onclick="selectCard('alerta15')">
-<small>Entre 8 y 15 días</small>
-<strong id="alert15">0</strong>
-<em>Alerta preventiva ↗</em>
-</button>
+ <button class="card amber" data-filter="alerta15"
+  onclick="selectCard('alerta15')">
+  <small>Entre 8 y 15 días</small>
+  <strong id="alert15">0</strong>
+  <em>Alerta preventiva ↗</em>
+ </button>
 
-<button class="card blue" data-filter="alerta20"
- onclick="selectCard('alerta20')">
-<small>Entre 16 y 20 días</small>
-<strong id="alert20">0</strong>
-<em>Seguimiento anticipado ↗</em>
-</button>
+ <button class="card blue" data-filter="alerta20"
+  onclick="selectCard('alerta20')">
+  <small>Entre 16 y 20 días</small>
+  <strong id="alert20">0</strong>
+  <em>Seguimiento anticipado ↗</em>
+ </button>
 
 </div>
 
@@ -266,87 +599,104 @@ los nuevos, sin eliminar automáticamente registros anteriores.
 
 <div class="grid-other">
 
-<button class="card" data-filter="plazo"
- onclick="selectCard('plazo')">
-<small>En plazo (más de 20 días)</small>
-<strong id="inTime">0</strong>
-<em>Ver documentos ↗</em>
-</button>
+ <button class="card" data-filter="plazo"
+  onclick="selectCard('plazo')">
+  <small>En plazo (más de 20 días)</small>
+  <strong id="inTime">0</strong>
+  <em>Ver documentos ↗</em>
+ </button>
 
-<button class="card" data-filter="sinfecha"
- onclick="selectCard('sinfecha')">
-<small>Sin fecha planificada</small>
-<strong id="noDate">0</strong>
-<em>Ver documentos ↗</em>
-</button>
+ <button class="card" data-filter="sinfecha"
+  onclick="selectCard('sinfecha')">
+  <small>Sin fecha planificada</small>
+  <strong id="noDate">0</strong>
+  <em>Ver documentos ↗</em>
+ </button>
 
 </div>
 
 <div id="alert" class="alert hidden">
-<strong>ALERTA DE DESVÍOS DOCUMENTALES</strong>
-<span id="alertText"></span>
-<br><br>
-<button onclick="selectCard('vencidos')">
-Ver documentos vencidos
-</button>
+ <strong>ALERTA DE DESVÍOS DOCUMENTALES</strong>
+ <span id="alertText"></span>
+ <p>
+  <button onclick="selectCard('vencidos')">
+   Ver documentos vencidos
+  </button>
+ </p>
 </div>
 
 <div class="toolbar">
-<input id="search" placeholder="Buscar documento o descripción...">
 
-<select id="specialty">
-<option value="">Todas las especialidades</option>
-</select>
+ <input id="search"
+  placeholder="Buscar documento o descripción...">
 
-<select id="dateFilter">
-<option value="">Todas las fechas</option>
-<option value="7">Próximos 7 días</option>
-<option value="15">Próximos 15 días</option>
-<option value="20">Próximos 20 días</option>
-<option value="30">Próximos 30 días</option>
-</select>
+ <select id="specialty">
+  <option value="">Todas las especialidades</option>
+ </select>
 
-<button onclick="selectCard('todos')">Limpiar filtros</button>
-<button class="engineering-export" onclick="exportExcel()">Exportar vista</button>
-<button onclick="loadDocuments()">Actualizar datos</button>
+ <select id="dateFilter">
+  <option value="">Todas las fechas</option>
+  <option value="7">Próximos 7 días</option>
+  <option value="15">Próximos 15 días</option>
+  <option value="20">Próximos 20 días</option>
+  <option value="30">Próximos 30 días</option>
+ </select>
+
+ <button onclick="selectCard('todos')">
+  Limpiar filtros
+ </button>
+
+ <button class="engineering-export"
+  onclick="exportExcel()">
+  Exportar vista
+ </button>
+
+ <button onclick="loadDocuments()">
+  Actualizar datos
+ </button>
+
 </div>
 
 <div class="panel" id="detailPanel">
-<div class="panel-head">
-<div>
-<h2 id="tableTitle">Todos los documentos</h2>
-<p id="statusMessage" class="note"></p>
-</div>
-</div>
+ <div class="panel-head">
+  <div>
+   <h2 id="tableTitle">Todos los documentos</h2>
+   <p id="statusMessage" class="note"></p>
+  </div>
+ </div>
 
-<div class="scroll">
-<table>
-<thead>
-<tr>
-<th>Documento PECOM</th>
-<th>Descripción</th>
-<th>Especialidad</th>
-<th>Plan Rev. 0</th>
-<th>Última revisión</th>
-<th>Última emisión</th>
-<th>Estado</th>
-<th>Días restantes / desvío</th>
-<th>Detalle</th>
-</tr>
-</thead>
-<tbody id="tableBody"></tbody>
-</table>
-</div>
+ <div class="scroll">
+  <table>
+   <thead>
+    <tr>
+     <th>Documento PECOM</th>
+     <th>Descripción</th>
+     <th>Especialidad</th>
+     <th>Plan Rev. 0</th>
+     <th>Última revisión</th>
+     <th>Última emisión</th>
+     <th>Estado</th>
+     <th>Días restantes / desvío</th>
+     <th>Detalle</th>
+    </tr>
+   </thead>
+   <tbody id="tableBody"></tbody>
+  </table>
+ </div>
 </div>
 
 <p class="note">
-Los documentos con una letra o número en última revisión se
-consideran presentados. Las alertas preventivas se aplican
-únicamente a documentos sin revisión registrada.
+ Los documentos con una letra o número en última revisión
+ se consideran presentados. Las alertas preventivas se
+ aplican únicamente a documentos sin revisión registrada.
 </p>
+
 </div>
 
+<!-- SUMINISTROS -->
+
 <section id="suministrosContent" class="hidden">
+
  <div class="seg-head">
   <div>
    <h2>Suministros · PO# 11</h2>
@@ -355,36 +705,56 @@ consideran presentados. Las alertas preventivas se aplican
     alertas calculadas por posición de AC.
    </p>
   </div>
-  <button class="primary seg-admin hidden" onclick="exportBackup()">
+
+  <button class="primary seg-admin hidden"
+   onclick="exportBackup()">
    Exportar respaldo Excel
   </button>
  </div>
 
  <div class="admin seg-admin hidden">
+
   <h3>Importar seguimiento</h3>
+
   <p class="note">
    Excel con hojas Suministros y Seguimiento.
-   
-    La cantidad entregada del Excel es acumulada. Los remitos documentan ese total y no lo incrementan.
-    Las recepciones y adjuntos registrados no se eliminan.
+   La cantidad entregada del Excel es acumulada.
+   Los remitos documentan ese total y no lo incrementan.
+   Las recepciones y adjuntos registrados no se eliminan.
   </p>
-  <input id="segExcel" type="file" accept=".xlsx,.xls">
-  <button class="primary" onclick="importSeguimiento()">
+
+  <p class="note">
+   Las actividades de Seguimiento diario no actualizan
+   automáticamente la tabla de Suministros.
+  </p>
+
+  <input id="segExcel" type="file"
+   accept=".xlsx,.xls">
+
+  <button class="primary"
+   onclick="importSeguimiento()">
    Actualizar Suministros y Seguimiento
   </button>
+
  </div>
 
  <p id="segMessage" class="note"></p>
 
- <div class="section-title">Resumen y alertas</div>
+ <div class="section-title">
+  Resumen y alertas
+ </div>
+
  <div id="segKpis" class="seg-kpis"></div>
 
  <div class="toolbar">
+
   <input id="segSearch"
    placeholder="Buscar por SOLPED, AC, proveedor o material"
    oninput="renderSuministros()">
 
-  <select onchange="S.grupo=this.value;renderSuministros()">
+  <select onchange="
+   S.grupo=this.value;
+   renderSuministros()">
    <option value="sp">Agrupar por SOLPED</option>
    <option value="ac">Agrupar por AC</option>
   </select>
@@ -396,214 +766,253 @@ consideran presentados. Las alertas preventivas se aplican
    Limpiar filtros
   </button>
 
-  <button onclick="loadExtra()">Actualizar</button>
+  <button onclick="loadExtra()">
+   Actualizar
+  </button>
+
  </div>
 
  <p id="segCount" class="note"></p>
+
  <div id="segCards" class="seg-layout"></div>
 
  <p class="note">
-  Las entregas de 0–9 días siguen visibles en el listado,
+  Las entregas de 0 a 9 días siguen visibles en el listado,
   sin alerta propia. Las cantidades de diferentes materiales
   no se suman entre sí.
  </p>
+
 </section>
 
+<!-- SEGUIMIENTO DIARIO -->
+
 <section id="seguimientoContent" class="hidden">
+
  <div class="seg-head">
   <div>
    <h2>Seguimiento diario</h2>
+
    <p class="note">
     Actividades, responsables, estados,
     documentación e historial.
    </p>
+
+   <p class="note">
+    Las filas «Desencadena.» son actividades posteriores
+    a la fila inmediatamente superior.
+    Se habilitan al finalizar la actividad previa.
+   </p>
   </div>
-  <button onclick="loadExtra()">Actualizar</button>
+
+  <button onclick="loadExtra()">
+   Actualizar
+  </button>
  </div>
 
  <p id="taskCount" class="note"></p>
  <div id="taskCards"></div>
+
 </section>
 
 </main>
 
+<!-- MODAL SUMINISTROS Y ACTIVIDADES -->
+
 <div id="extraOverlay" class="overlay hidden"
  onclick="if(event.target===this)closeExtra()">
+
  <div class="modal">
+
   <div class="modal-head">
    <h2 id="extraTitle"></h2>
    <button onclick="closeExtra()">✕</button>
   </div>
+
   <div id="extraBody"></div>
+
  </div>
 </div>
 
+<!-- MODAL INGENIERÍA -->
+
 <div id="overlay" class="overlay hidden"
  onclick="closeDetail(event)">
+
  <div class="modal">
+
   <div class="modal-head">
    <h2 id="modalTitle"></h2>
    <button onclick="hideDetail()">✕</button>
   </div>
+
   <div id="modalContent"></div>
+
  </div>
 </div>
 
+<!-- CONEXIÓN SUPABASE Y FUNCIONES GENERALES -->
+
 <script>
+
 const SUPABASE_URL =
  "https://tnnioleawbhuqjuykrsf.supabase.co";
 
 const SUPABASE_KEY =
  "sb_publishable__gz2j09IN5vbQcPwdGnjKw_4NBMi1_O";
 
-const db = window.supabase.createClient(
+const db=window.supabase.createClient(
  SUPABASE_URL,
  SUPABASE_KEY
 );
 
-const $ = id => document.getElementById(id);
+const $=id=>document.getElementById(id);
 
-let documents = [];
-let filteredDocuments = [];
-let currentFilter = "todos";
-let isAdmin = false;
-let currentUser = null;
+let documents=[];
+let filteredDocuments=[];
+let currentFilter="todos";
+let isAdmin=false;
+let currentUser=null;
 
-const S = {
- suministros: [],
- actividades: [],
- recepciones: [],
- adjuntos: [],
- auditoria: [],
- grupo: "sp",
- filtro: "todos",
- cargado: false
+const S={
+ suministros:[],
+ actividades:[],
+ recepciones:[],
+ adjuntos:[],
+ auditoria:[],
+ grupo:"sp",
+ filtro:"todos",
+ cargado:false
 };
 
-function escapeHtml(value) {
- return String(value ?? "")
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;")
-  .replace(/'/g, "&#39;");
+function escapeHtml(value){
+ return String(value??"")
+  .replace(/&/g,"&amp;")
+  .replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;")
+  .replace(/'/g,"&#39;");
 }
 
-function normalizarTexto(value) {
- return String(value ?? "")
+function normalizarTexto(value){
+ return String(value??"")
   .trim()
   .toLowerCase()
   .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .replace(/\s+/g, " ");
+  .replace(/[\u0300-\u036f]/g,"")
+  .replace(/\s+/g," ");
 }
 
-function parseNumero(value) {
- if (typeof value === "number") {
-  return Number.isFinite(value) ? value : 0;
+function parseNumero(value){
+ if(typeof value==="number"){
+  return Number.isFinite(value)?value:0;
  }
 
- let text = String(value ?? "").trim();
+ let text=String(value??"").trim();
+ if(!text) return 0;
 
- if (!text) return 0;
+ text=text.replace(/[^\d,.\-]/g,"");
 
- text = text.replace(/[^\d,.\-]/g, "");
+ const comma=text.lastIndexOf(",");
+ const dot=text.lastIndexOf(".");
 
- const comma = text.lastIndexOf(",");
- const dot = text.lastIndexOf(".");
-
- if (comma >= 0 && dot >= 0) {
-  if (comma > dot) {
-   text = text.replace(/\./g, "").replace(",", ".");
-  } else {
-   text = text.replace(/,/g, "");
+ if(comma>=0&&dot>=0){
+  if(comma>dot){
+   text=text.replace(/\./g,"").replace(",",".");
+  }else{
+   text=text.replace(/,/g,"");
   }
- } else if (comma >= 0) {
-  text = text.replace(",", ".");
+ }else if(comma>=0){
+  text=text.replace(",",".");
  }
 
- const number = Number(text);
- return Number.isFinite(number) ? number : 0;
+ const number=Number(text);
+ return Number.isFinite(number)?number:0;
 }
 
-function parseFecha(value) {
- if (!value) return null;
+function parseFecha(value){
+ if(!value) return null;
 
- if (value instanceof Date) {
-  if (isNaN(value.getTime())) return null;
-  return value.toISOString().slice(0, 10);
- }
-
- if (typeof value === "number") {
-  const parts = XLSX.SSF.parse_date_code(value);
-  if (!parts) return null;
+ if(value instanceof Date){
+  if(isNaN(value.getTime())) return null;
 
   return [
-   String(parts.y).padStart(4, "0"),
-   String(parts.m).padStart(2, "0"),
-   String(parts.d).padStart(2, "0")
+   value.getFullYear(),
+   String(value.getMonth()+1).padStart(2,"0"),
+   String(value.getDate()).padStart(2,"0")
   ].join("-");
  }
 
- const text = String(value).trim();
+ if(typeof value==="number"){
+  const parts=XLSX.SSF.parse_date_code(value);
+  if(!parts) return null;
 
- if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
-  return text.slice(0, 10);
+  return [
+   String(parts.y).padStart(4,"0"),
+   String(parts.m).padStart(2,"0"),
+   String(parts.d).padStart(2,"0")
+  ].join("-");
  }
 
- const match = text.match(
+ const text=String(value).trim();
+
+ if(/^\d{4}-\d{2}-\d{2}/.test(text)){
+  return text.slice(0,10);
+ }
+
+ const match=text.match(
   /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
  );
 
- if (match) {
+ if(match){
   return [
    match[3],
-   match[2].padStart(2, "0"),
-   match[1].padStart(2, "0")
+   match[2].padStart(2,"0"),
+   match[1].padStart(2,"0")
   ].join("-");
  }
 
  return null;
 }
 
-function diasHasta(fecha) {
- if (!fecha) return null;
+function diasHasta(fecha){
+ if(!fecha) return null;
 
- const hoy = new Date();
- hoy.setHours(0, 0, 0, 0);
+ const hoy=new Date();
+ hoy.setHours(0,0,0,0);
 
- const destino = new Date(fecha + "T00:00:00");
+ const destino=new Date(fecha+"T00:00:00");
 
  return Math.round(
-  (destino.getTime() - hoy.getTime()) / 86400000
+  (destino.getTime()-hoy.getTime())/86400000
  );
 }
 
-async function login() {
- const email = $("email").value.trim();
- const password = $("password").value;
+async function login(){
+ const email=$("email").value.trim();
+ const password=$("password").value;
 
- $("loginMessage").textContent = "Ingresando...";
+ $("loginMessage").textContent="Ingresando...";
 
- const { error } = await db.auth.signInWithPassword({
+ const {error}=await db.auth.signInWithPassword({
   email,
   password
  });
 
- if (error) {
-  $("loginMessage").textContent = error.message;
+ if(error){
+  $("loginMessage").textContent=error.message;
   return;
  }
 
  await initialize();
 }
 
-async function logout() {
+
+async function logout(){
  await db.auth.signOut();
  location.reload();
 }
 
-async function initialize() {
+async function initialize(){
  const {data:sessionData}=await db.auth.getSession();
  const user=sessionData?.session?.user;
 
@@ -666,9 +1075,7 @@ function switchTab(tab){
 
  if(tab!=="ingenieria") loadExtra();
 }
-</script>
 
-<script>
 /* ============================================
    INGENIERÍA
 ============================================ */
@@ -683,7 +1090,9 @@ function estadoDocumento(d){
  if(String(d.ultima_revision??"").trim()){
   return {nombre:"Presentado",dias:null,clase:"presentado"};
  }
+
  const dias=diasHasta(d.fecha_plan_rev0);
+
  if(dias===null)
   return {nombre:"Sin fecha",dias:null,clase:"sinfecha"};
  if(dias<0)
@@ -694,33 +1103,43 @@ function estadoDocumento(d){
   return {nombre:"Alerta 15 días",dias,clase:"alerta15"};
  if(dias<=20)
   return {nombre:"Alerta 20 días",dias,clase:"alerta20"};
+
  return {nombre:"En plazo",dias,clase:"plazo"};
 }
 
 async function obtenerTodos(tabla,orden="id"){
  const resultado=[];
  let desde=0;
+
  while(true){
   const {data,error}=await db.from(tabla)
    .select("*").order(orden).range(desde,desde+999);
+
   if(error) throw error;
+
   resultado.push(...data);
+
   if(data.length<1000) break;
   desde+=1000;
  }
+
  return resultado;
 }
 
 async function loadDocuments(){
  $("statusMessage").textContent="Actualizando documentos...";
+
  try{
   const registros=await obtenerTodos(
    "ingenieria_documentos","documento"
   );
+
   documents=registros.filter(d=>
    String(d.po??"").split(/[^0-9]+/).includes("11")
   );
+
   renderIngenieria();
+
  }catch(e){
   $("statusMessage").textContent="Error: "+e.message;
  }
@@ -738,8 +1157,10 @@ function renderIngenieria(){
  const estados=documents.map(d=>({
   ...d,_estado:estadoDocumento(d)
  }));
+
  const contar=clase=>
   estados.filter(d=>d._estado.clase===clase).length;
+
  const presentados=contar("presentado");
 
  $("total").textContent=documents.length;
@@ -753,6 +1174,7 @@ function renderIngenieria(){
 
  const porcentaje=documents.length?
   Math.round(presentados*100/documents.length):0;
+
  $("progressFill").style.width=porcentaje+"%";
  $("progressText").textContent=porcentaje+"% de avance";
 
@@ -761,12 +1183,14 @@ function renderIngenieria(){
  )].sort();
 
  const anterior=$("specialty").value;
+
  $("specialty").innerHTML=
   '<option value="">Todas las especialidades</option>'+
   especialidades.map(x=>
    '<option value="'+escapeHtml(x)+'">'+
    escapeHtml(x)+'</option>'
   ).join("");
+
  $("specialty").value=anterior;
 
  const busqueda=normalizarTexto($("search").value);
@@ -777,6 +1201,7 @@ function renderIngenieria(){
   if(busqueda&&!normalizarTexto(
    d.documento+" "+d.descripcion
   ).includes(busqueda)) return false;
+
   if(especialidad&&d.especialidad!==especialidad)
    return false;
 
@@ -784,12 +1209,14 @@ function renderIngenieria(){
    const clase=currentFilter==="presentados"?"presentado":
     currentFilter==="vencidos"?"vencido":
     currentFilter==="proximos"?"proximo":currentFilter;
+
    if(d._estado.clase!==clase) return false;
   }
 
   if(plazo&&(d._estado.dias===null||
      d._estado.dias<0||d._estado.dias>plazo))
    return false;
+
   return true;
  });
 
@@ -801,16 +1228,23 @@ function renderIngenieria(){
    <td>${fechaVisible(d.fecha_plan_rev0)}</td>
    <td>${escapeHtml(d.ultima_revision||"—")}</td>
    <td>${fechaVisible(d.fecha_ultima_emision)}</td>
-   <td><span class="badge ${d._estado.clase}">
-    ${d._estado.nombre}</span></td>
+   <td>
+    <span class="badge ${d._estado.clase}">
+     ${d._estado.nombre}
+    </span>
+   </td>
    <td>${d._estado.dias===null?"—":d._estado.dias}</td>
-   <td><button class="detail" onclick="verDocumento(${i})">
-    Ver</button></td>
+   <td>
+    <button class="detail" onclick="verDocumento(${i})">
+     Ver
+    </button>
+   </td>
   </tr>
  `).join("");
 
  $("statusMessage").textContent=
   filteredDocuments.length+" documentos mostrados.";
+
  $("alert").classList.toggle("hidden",!contar("vencido"));
  $("alertText").textContent=
   contar("vencido")+" documentos tienen vencimiento superado.";
@@ -821,6 +1255,7 @@ function verDocumento(i){
  if(!d) return;
 
  $("modalTitle").textContent=d.documento;
+
  $("modalContent").innerHTML=Object.entries({
   "Descripción":d.descripcion,
   "Especialidad":d.especialidad,
@@ -834,18 +1269,21 @@ function verDocumento(i){
    <strong>${escapeHtml(v)}</strong>
   </div>
  `).join("");
+
  $("overlay").classList.remove("hidden");
 }
 
 function hideDetail(){
  $("overlay").classList.add("hidden");
 }
+
 function closeDetail(e){
  if(e.target===$("overlay")) hideDetail();
 }
 
 async function uploadExcel(){
  if(!isAdmin) return;
+
  const file=$("excel").files[0];
  if(!file) return alert("Seleccioná un archivo.");
 
@@ -853,6 +1291,7 @@ async function uploadExcel(){
   const wb=XLSX.read(await file.arrayBuffer(),{
    type:"array",cellDates:true
   });
+
   const hoja=wb.Sheets.LD;
   if(!hoja) throw Error("No se encontró la hoja LD.");
 
@@ -864,9 +1303,12 @@ async function uploadExcel(){
 
   for(const r of filas){
    const po=String(r[30]??"");
-   if(!po.split(/[^0-9]+/).includes("11")) continue;
+
+   if(!po.split(/[^0-9]+/).includes("11"))
+    continue;
 
    const codigo=String(r[7]??"").trim();
+
    if(!/^AI71-/i.test(codigo)) continue;
 
    nuevos.set(codigo,{
@@ -890,6 +1332,7 @@ async function uploadExcel(){
 
   const registros=[...nuevos.values()].map(d=>{
    const previo=existentes.get(d.documento);
+
    return {
     ...d,
     fecha_emision_rev0:previo?.fecha_emision_rev0||
@@ -908,13 +1351,16 @@ async function uploadExcel(){
     .upsert(registros.slice(i,i+100),{
      onConflict:"documento"
     });
+
    if(error) throw error;
   }
 
   $("uploadMessage").textContent=
    "Importación completada: "+registros.length+
    " documentos.";
+
   await loadDocuments();
+
  }catch(e){
   $("uploadMessage").textContent="Error: "+e.message;
  }
@@ -925,6 +1371,7 @@ function exportExcel(){
   return alert("Exportación exclusiva de administración.");
 
  const wb=XLSX.utils.book_new();
+
  const ws=XLSX.utils.json_to_sheet(
   filteredDocuments.map(d=>({
    Documento:d.documento,
@@ -964,6 +1411,7 @@ function leerHoja(hoja){
   throw Error("No se reconocieron los encabezados.");
 
  const nombres=matriz[indice].map(encabezado);
+
  const duplicados=nombres.filter((x,i)=>
   x&&nombres.indexOf(x)!==i
  );
@@ -978,9 +1426,11 @@ function leerHoja(hoja){
   .filter(f=>f.some(v=>String(v??"").trim()))
   .map(f=>{
    const objeto={};
+
    nombres.forEach((n,i)=>{
     if(n) objeto[n]=f[i]??"";
    });
+
    return objeto;
   });
 }
@@ -988,9 +1438,11 @@ function leerHoja(hoja){
 function campo(fila,...nombres){
  for(const nombre of nombres){
   const clave=encabezado(nombre);
+
   if(Object.prototype.hasOwnProperty.call(fila,clave))
    return fila[clave];
  }
+
  return "";
 }
 
@@ -1005,8 +1457,10 @@ function clavePartes(...partes){
 function claveSuministro(d){
  if(d.sp&&d.ps)
   return clavePartes("SP",d.sp,d.ps);
+
  if(d.ac&&d.pa)
   return clavePartes("AC",d.ac,d.pa);
+
  return clavePartes(
   "SINPOS",d.ri,d.codigo,d.descripcion
  );
@@ -1014,7 +1468,10 @@ function claveSuministro(d){
 
 function claveActividad(d){
  return clavePartes(
-  d.po,d.responsable,d.tema,d.ocurrencia||1
+  d.po,
+  d.responsable,
+  d.tema,
+  d.ocurrencia||1
  );
 }
 
@@ -1037,15 +1494,18 @@ function solpedEnTema(tema){
  const m=String(tema||"").match(
   /\b(?:SP|SOLPED)\s*#?\s*(\d{6,})\b/i
  );
+
  return m?.[1]||"";
 }
 
 function combinarDatos(anterior,nuevo){
  const resultado={...(anterior||{})};
+
  for(const [k,v] of Object.entries(nuevo)){
   if(v!==""&&v!==null&&v!==undefined)
    resultado[k]=v;
  }
+
  return resultado;
 }
 
@@ -1068,17 +1528,24 @@ async function loadExtra(){
   renderActividades();
 
   $("segMessage").textContent="Datos actualizados.";
+
  }catch(e){
   $("segMessage").textContent=
    "Error de conexión: "+e.message;
  }
 }
 
+/* ============================================
+   IMPORTACIÓN CON VISTA PREVIA DETALLADA
+============================================ */
+
 async function importSeguimiento(){
  if(!isAdmin) return;
 
  const file=$("segExcel").files[0];
- if(!file) return alert("Seleccioná el Excel.");
+
+ if(!file)
+  return alert("Seleccioná el Excel.");
 
  try{
   $("segMessage").textContent="Analizando archivo...";
@@ -1101,21 +1568,32 @@ async function importSeguimiento(){
 
   for(const x of S.suministros){
    const k=claveSuministro(x.datos);
-   if(!actuales.has(k)) actuales.set(k,[]);
+
+   if(!actuales.has(k))
+    actuales.set(k,[]);
+
    actuales.get(k).push(x);
   }
 
   const propuestos=[];
   const vistos=new Set();
   const conflictos=[];
+
+  // CONTADORES DE EXCLUSIONES
   let anuladas=0;
+  let otrasPO=0;
+  let sinSolpedNiAC=0;
+  let sinPosicion=0;
 
   for(const r of filas){
    const po=String(campo(
     r,"#PO - Pedido Obr","PO","Pedido Obra"
    )).trim();
 
-   if(po&&po!=="11") continue;
+   if(po&&po!=="11"){
+    otrasPO++;
+    continue;
+   }
 
    const estadoSp=normalizarTexto(campo(
     r,
@@ -1132,51 +1610,77 @@ async function importSeguimiento(){
 
    const d={
     po:"11",
+
     ri:String(campo(
      r,"RI","Requisición de Ingeniería"
     )).trim(),
-    sp:String(campo(r,"SP 1","SOLPED")).trim(),
+
+    sp:String(campo(
+     r,"SP 1","SOLPED"
+    )).trim(),
+
     ps:String(campo(
      r,"Pos SP1","Posicion SOLPED","Posicion"
     )).trim(),
+
     ac:String(campo(r,"AC")).trim(),
+
     pa:String(campo(
      r,"Pos AC","Posicion de AC"
     )).trim(),
+
     codigo:String(campo(
      r,"Cód Material SAP","Codigo SAP"
     )).trim(),
+
     descripcion:String(campo(
      r,"Texto Breve","Descripcion"
     )).trim(),
-    proveedor:String(campo(r,"Proveedor")).trim(),
+
+    proveedor:String(campo(
+     r,"Proveedor"
+    )).trim(),
+
     pedido:parseNumero(campo(
      r,"Cant Pedida","Cantidad del pedido"
     )),
+
     entregado_excel:parseNumero(campo(
      r,"Cant Entregada","Entrega"
     )),
+
     fecha_entrega:parseFecha(campo(
      r,"Fecha Entrega según AC","Fecha de entrega"
     )),
+
     estado_ac:String(campo(
      r,"Estado AC","Estado de aprobación"
     )).trim(),
+
     comentarios:String(campo(
      r,"Comentarios","Observaciones"
     )).trim(),
+
     estado_sp:String(campo(
-     r,"Estado SP1 (Lib- S/L-Anulado)",
+     r,
+     "Estado SP1 (Lib- S/L-Anulado)",
      "Estado SP1"
     )).trim()
    };
 
-   if(!d.sp&&!d.ac) continue;
+   if(!d.sp&&!d.ac){
+    sinSolpedNiAC++;
+    continue;
+   }
 
    if((!d.sp||!d.ps)&&(!d.ac||!d.pa)){
+    sinPosicion++;
+
     conflictos.push(
-     "Sin posición identificable: "+d.descripcion
+     "Sin posición identificable: "+
+     (d.descripcion||"Sin descripción")
     );
+
     continue;
    }
 
@@ -1186,6 +1690,7 @@ async function importSeguimiento(){
     conflictos.push("Duplicado: "+k);
     continue;
    }
+
    vistos.add(k);
 
    const coincidencias=actuales.get(k)||[];
@@ -1199,18 +1704,22 @@ async function importSeguimiento(){
 
    propuestos.push({
     id:previo?.id||"sum-"+k,
+
     datos:{
      ...combinarDatos(previo?.datos,d),
      entregado_excel:d.entregado_excel,
      pedido:d.pedido
     },
+
     presente_ultima_importacion:true,
     previo
    });
   }
 
   if(!propuestos.length)
-   throw Error("No se encontraron suministros válidos.");
+   throw Error(
+    "No se encontraron suministros válidos."
+   );
 
   if(conflictos.length)
    throw Error(
@@ -1218,9 +1727,9 @@ async function importSeguimiento(){
     conflictos.slice(0,5).join("; ")
    );
 
-  // Cada fila "Desencadena." depende
-  // de la fila inmediatamente superior.
-  // Se admiten cadenas de varias etapas.
+  /* ==========================================
+     ACTIVIDADES ENCADENADAS
+  ========================================== */
 
   const actualesTareas=new Map(
    S.actividades.map(t=>[t.id,t])
@@ -1228,6 +1737,11 @@ async function importSeguimiento(){
 
   const propuestasTareas=[];
   const ocurrencias=new Map();
+
+  // CONTADORES DE ACTIVIDADES
+  let actividadesIniciales=0;
+  let actividadesDesencadenadas=0;
+  let actividadesSinTema=0;
 
   let anterior=null;
   let contexto=null;
@@ -1240,6 +1754,7 @@ async function importSeguimiento(){
    )).trim();
 
    if(!temaOriginal){
+    actividadesSinTema++;
     anterior=null;
     contexto=null;
     continue;
@@ -1254,6 +1769,12 @@ async function importSeguimiento(){
      ": Desencadena sin actividad superior."
     );
     continue;
+   }
+
+   if(dependiente){
+    actividadesDesencadenadas++;
+   }else{
+    actividadesIniciales++;
    }
 
    const poLeida=String(campo(
@@ -1285,42 +1806,56 @@ async function importSeguimiento(){
     responsable,
     tema,
     tema_excel:temaOriginal,
+
     importancia:String(campo(
      r,"Importancia","Prioridad"
     )).trim()||
      (dependiente?anterior.datos.importancia:""),
+
     consultar:String(campo(
      r,"Consultar"
     )).trim(),
+
     estatus_excel:String(campo(
      r,"Estatus","Estado"
     )).trim(),
+
     ocurrencia,
     desencadenada:dependiente,
+
     actividad_previa_id:dependiente?
      anterior.id:null,
+
     actividad_origen_id:dependiente?
      anterior.datos.actividad_origen_id||
      anterior.id:null,
+
     detalle_origen:dependiente?
      contexto:temaOriginal
    };
 
    const k=claveActividad(d);
    const id="act-"+k;
+
    const previo=actualesTareas.get(id);
 
    const propuesta={
     id,
     orden:i+1,
     datos:combinarDatos(previo?.datos,d),
+
     estado:previo?.estado||
      (dependiente?"Bloqueada":
       ["Pendiente","En proceso","Finalizado"]
        .includes(d.estatus_excel)?
        d.estatus_excel:"Pendiente"),
-    solped_generada:previo?.solped_generada||null,
-    observaciones:previo?.observaciones||null,
+
+    solped_generada:
+     previo?.solped_generada||null,
+
+    observaciones:
+     previo?.observaciones||null,
+
     presente_ultima_importacion:true,
     previo
    };
@@ -1328,7 +1863,8 @@ async function importSeguimiento(){
    propuestasTareas.push(propuesta);
    anterior=propuesta;
 
-   if(!dependiente) contexto=temaOriginal;
+   if(!dependiente)
+    contexto=temaOriginal;
   }
 
   if(conflictos.length)
@@ -1342,7 +1878,10 @@ async function importSeguimiento(){
     "No se reconocieron las actividades existentes."
    );
 
-  const ids=new Set(propuestos.map(x=>x.id));
+  const ids=new Set(
+   propuestos.map(x=>x.id)
+  );
+
   const idsTareas=new Set(
    propuestasTareas.map(x=>x.id)
   );
@@ -1357,9 +1896,13 @@ async function importSeguimiento(){
    x.presente_ultima_importacion!==false
   );
 
-  const nuevos=propuestos.filter(x=>!x.previo).length;
-  const nuevosTareas=propuestasTareas
-   .filter(x=>!x.previo).length;
+  const nuevos=propuestos.filter(x=>
+   !x.previo
+  ).length;
+
+  const nuevosTareas=propuestasTareas.filter(x=>
+   !x.previo
+  ).length;
 
   const modificados=propuestos.filter(x=>
    x.previo&&
@@ -1373,24 +1916,62 @@ async function importSeguimiento(){
    JSON.stringify(x.datos)
   ).length;
 
+  const totalExcluidas=
+   anuladas+otrasPO+sinSolpedNiAC+sinPosicion;
+
+  /* ==========================================
+     VISTA PREVIA DE IMPORTACIÓN
+  ========================================== */
+
   const resumen=
    "VISTA PREVIA DE IMPORTACIÓN\n\n"+
+
+   "SUMINISTROS\n"+
+   "Filas leídas: "+filas.length+"\n"+
+   "Posiciones válidas: "+propuestos.length+"\n"+
    "SOLPED anuladas excluidas: "+anuladas+"\n"+
+   "Otras PO excluidas: "+otrasPO+"\n"+
+   "Sin SOLPED ni AC: "+sinSolpedNiAC+"\n"+
+   "Sin posición identificable: "+sinPosicion+"\n"+
+   "TOTAL EXCLUIDAS: "+totalExcluidas+"\n\n"+
+
    "Suministros nuevos: "+nuevos+"\n"+
    "Suministros modificados: "+modificados+"\n"+
-   "Suministros ausentes: "+ausentes.length+
-   "\n\n"+
+   "Suministros ausentes: "+ausentes.length+"\n\n"+
+
+   "SEGUIMIENTO DIARIO\n"+
+   "Filas leídas: "+tareas.length+"\n"+
+   "Actividades iniciales: "+actividadesIniciales+"\n"+
+   "Actividades desencadenadas: "+
+    actividadesDesencadenadas+"\n"+
+   "Actividades sin tema: "+actividadesSinTema+"\n"+
+   "Total de actividades: "+
+    propuestasTareas.length+"\n\n"+
+
    "Actividades nuevas: "+nuevosTareas+"\n"+
-   "Actividades modificadas: "+modificadosTareas+"\n"+
-   "Actividades ausentes: "+ausentesTareas.length+
-   "\n\n"+
-   "Los ausentes se conservarán. ¿Confirmar?";
+   "Actividades modificadas: "+
+    modificadosTareas+"\n"+
+   "Actividades ausentes: "+
+    ausentesTareas.length+"\n\n"+
+
+   "Las actividades desencadenadas se guardarán "+
+   "bloqueadas hasta finalizar la anterior.\n\n"+
+
+   "Seguimiento diario NO modifica automáticamente "+
+   "la tabla de Suministros.\n\n"+
+
+   "Los registros ausentes se conservarán.\n"+
+   "¿Confirmar importación?";
 
   if(!confirm(resumen)){
    $("segMessage").textContent=
     "Importación cancelada.";
    return;
   }
+
+  /* ==========================================
+     GUARDADO EN SUPABASE
+  ========================================== */
 
   const {data:imp,error:impError}=await db
    .from("seg_importaciones")
@@ -1493,25 +2074,33 @@ async function importSeguimiento(){
  }catch(e){
   $("segMessage").textContent=
    "Error: "+e.message;
+
   alert(e.message);
  }
 }
 
 /* ============================================
    ENTREGAS Y ALERTAS
+   CONTINÚA EN LA PARTE 3
 ============================================ */
 
-function recepcionesDe(id) {
+/* ============================================
+   ENTREGAS Y ALERTAS
+============================================ */
+
+function recepcionesDe(id){
  return S.recepciones.filter(r=>
-  r.suministro_id===id && !r.anulado
+  r.suministro_id===id&&!r.anulado
  );
 }
 
-function cantidades(item) {
+function cantidades(item){
  const pedido=parseNumero(item.datos.pedido);
+
  const entregado=Math.max(
   0,parseNumero(item.datos.entregado_excel)
  );
+
  const remitos=recepcionesDe(item.id)
   .filter(r=>r.estado==="Conforme")
   .reduce((s,r)=>s+parseNumero(r.cantidad),0);
@@ -1526,7 +2115,7 @@ function cantidades(item) {
  };
 }
 
-function alertaSuministro(item) {
+function alertaSuministro(item){
  if(item.presente_ultima_importacion===false)
   return "Ausente del Excel";
 
@@ -1535,53 +2124,104 @@ function alertaSuministro(item) {
 
  if(c.excesoDocumentado>0.000001)
   return "Revisar remitos";
- if(!d.ac) return "Sin AC";
+
+ if(!d.ac)
+  return "Sin AC";
+
  if(c.pedido>0&&c.pendiente===0)
   return "Completo";
 
  const dias=diasHasta(d.fecha_entrega);
 
- if(dias!==null&&dias<0) return "Vencido";
- if(dias!==null&&dias>=10&&dias<=15) return "Alta";
+ if(dias!==null&&dias<0)
+  return "Vencido";
+
+ if(dias!==null&&dias>=10&&dias<=15)
+  return "Alta";
+
  if(dias!==null&&dias>=16&&dias<=30)
   return "Preventiva";
- if(c.conforme>0) return "Parcial";
- if(dias===null) return "Sin fecha";
+
+ if(c.conforme>0)
+  return "Parcial";
+
+ if(dias===null)
+  return "Sin fecha";
+
  return "Sin alerta";
 }
 
-function renderSuministros() {
- const busqueda=normalizarTexto($("segSearch").value);
+/* ============================================
+   VISUALIZACIÓN DE SUMINISTROS
+============================================ */
+
+function renderSuministros(){
+ const busqueda=normalizarTexto(
+  $("segSearch").value
+ );
+
  const todos=S.suministros.filter(x=>
   x.presente_ultima_importacion!==false
  );
 
  const indicadores=[
-  ["Posiciones",todos.length,"todos"],
-  ["AC únicas",new Set(
-   todos.map(x=>x.datos.ac).filter(Boolean)
-  ).size,"todos"],
-  ["Vencidos",todos.filter(x=>
-   alertaSuministro(x)==="Vencido"
-  ).length,"Vencido"],
-  ["Alerta 10–15 días",todos.filter(x=>
-   alertaSuministro(x)==="Alta"
-  ).length,"Alta"],
-  ["Alerta 16–30 días",todos.filter(x=>
-   alertaSuministro(x)==="Preventiva"
-  ).length,"Preventiva"],
-  ["Entregas parciales",todos.filter(x=>{
-   const c=cantidades(x);
-   return c.conforme>0&&c.pendiente>0;
-  }).length,"Parcial"],
-  ["Remitos por conciliar",todos.filter(x=>{
-   const c=cantidades(x);
-   return c.sinDocumentar>0||
-    c.excesoDocumentado>0;
-  }).length,"Revisar remitos"],
-  ["Ausentes del Excel",S.suministros.filter(x=>
-   x.presente_ultima_importacion===false
-  ).length,"Ausente del Excel"]
+  [
+   "Posiciones",
+   todos.length,
+   "todos"
+  ],
+  [
+   "AC únicas",
+   new Set(
+    todos.map(x=>x.datos.ac).filter(Boolean)
+   ).size,
+   "todos"
+  ],
+  [
+   "Vencidos",
+   todos.filter(x=>
+    alertaSuministro(x)==="Vencido"
+   ).length,
+   "Vencido"
+  ],
+  [
+   "Alerta 10–15 días",
+   todos.filter(x=>
+    alertaSuministro(x)==="Alta"
+   ).length,
+   "Alta"
+  ],
+  [
+   "Alerta 16–30 días",
+   todos.filter(x=>
+    alertaSuministro(x)==="Preventiva"
+   ).length,
+   "Preventiva"
+  ],
+  [
+   "Entregas parciales",
+   todos.filter(x=>{
+    const c=cantidades(x);
+    return c.conforme>0&&c.pendiente>0;
+   }).length,
+   "Parcial"
+  ],
+  [
+   "Remitos por conciliar",
+   todos.filter(x=>{
+    const c=cantidades(x);
+    return c.sinDocumentar>0||
+     c.excesoDocumentado>0;
+   }).length,
+   "Revisar remitos"
+  ],
+  [
+   "Ausentes del Excel",
+   S.suministros.filter(x=>
+    x.presente_ultima_importacion===false
+   ).length,
+   "Ausente del Excel"
+  ]
  ];
 
  $("segKpis").innerHTML=indicadores.map(
@@ -1605,17 +2245,29 @@ function renderSuministros() {
 
  const filtrados=S.suministros.filter(x=>{
   const d=x.datos;
+
   const texto=normalizarTexto([
-   d.sp,d.ac,d.codigo,d.descripcion,d.proveedor,d.ri
+   d.sp,
+   d.ac,
+   d.codigo,
+   d.descripcion,
+   d.proveedor,
+   d.ri
   ].join(" "));
 
   const c=cantidades(x);
-  const coincide=S.filtro==="Revisar remitos"?
-   c.sinDocumentar>0||c.excesoDocumentado>0:
+
+  const coincide=
+   S.filtro==="Revisar remitos"?
+    c.sinDocumentar>0||
+    c.excesoDocumentado>0:
+
    S.filtro==="Parcial"?
-   c.conforme>0&&c.pendiente>0:
+    c.conforme>0&&c.pendiente>0:
+
    S.filtro==="Ausente del Excel"?
-   x.presente_ultima_importacion===false:
+    x.presente_ultima_importacion===false:
+
    S.filtro==="todos"||
     alertaSuministro(x)===S.filtro;
 
@@ -1632,6 +2284,7 @@ function renderSuministros() {
 
   if(!grupos.has(clave))
    grupos.set(clave,[]);
+
   grupos.get(clave).push(x);
  }
 
@@ -1643,6 +2296,7 @@ function renderSuministros() {
   detalle.className="supply-card";
 
   const cabecera=document.createElement("summary");
+
   cabecera.textContent=
    (S.grupo==="ac"?"AC ":"SOLPED ")+
    clave+" · "+items.length+" posiciones";
@@ -1652,6 +2306,7 @@ function renderSuministros() {
   for(const item of items){
    const d=item.datos;
    const c=cantidades(item);
+
    const fila=document.createElement("div");
    fila.className="material-row";
 
@@ -1659,43 +2314,64 @@ function renderSuministros() {
     <strong>${escapeHtml(
      d.descripcion||"Sin descripción"
     )}</strong>
+
     <p class="note">
      SOLPED ${escapeHtml(d.sp||"—")}
      · Pos. ${escapeHtml(d.ps||"—")}
      · AC ${escapeHtml(d.ac||"—")}
      · Pos. ${escapeHtml(d.pa||"—")}
     </p>
-    <p>Proveedor: ${
-     escapeHtml(d.proveedor||"—")
-    }</p>
-    <p>Fecha comprometida: ${
-     fechaVisible(d.fecha_entrega)
-    }</p>
+
+    <p>
+     Proveedor:
+     ${escapeHtml(d.proveedor||"—")}
+    </p>
+
+    <p>
+     Fecha comprometida:
+     ${fechaVisible(d.fecha_entrega)}
+    </p>
+
     <p>
      Pedido: <b>${c.pedido}</b> ·
-     Entregado según Excel: <b>${c.conforme}</b> ·
+     Entregado según Excel:
+     <b>${c.conforme}</b> ·
      Saldo: <b>${c.pendiente}</b>
     </p>
+
     <p>
-     Con remito conforme: <b>${c.remitos}</b> ·
-     Sin documentar: <b>${c.sinDocumentar}</b>
+     Con remito conforme:
+     <b>${c.remitos}</b> ·
+     Sin documentar:
+     <b>${c.sinDocumentar}</b>
+
      ${c.excesoDocumentado?
       ` · Exceso documentado:
        <b>${c.excesoDocumentado}</b>`:""}
     </p>
+
     <p>
-     <span class="badge plazo">${
-      escapeHtml(alertaSuministro(item))
-     }</span>
+     <span class="badge plazo">
+      ${escapeHtml(alertaSuministro(item))}
+     </span>
     </p>
+
     <div class="rowline">
      <button data-accion="historial"
-      class="detail">Entregas</button>
+      class="detail">
+      Entregas
+     </button>
+
      <button data-accion="adjuntos"
-      class="detail">Adjuntos</button>
+      class="detail">
+      Adjuntos
+     </button>
+
      ${isAdmin?
-      '<button data-accion="recepcion" class="primary">Registrar remito</button>':
-      ""}
+      `<button data-accion="recepcion"
+       class="primary">
+       Registrar remito
+      </button>`:""}
     </div>
    `;
 
@@ -1706,13 +2382,17 @@ function renderSuministros() {
    fila.querySelector(
     '[data-accion="adjuntos"]'
    ).onclick=()=>abrirAdjuntos(
-    "material",item.id,d.descripcion
+    "material",
+    item.id,
+    d.descripcion
    );
 
    const boton=fila.querySelector(
     '[data-accion="recepcion"]'
    );
-   if(boton) boton.onclick=()=>nuevaRecepcion(item);
+
+   if(boton)
+    boton.onclick=()=>nuevaRecepcion(item);
 
    detalle.append(fila);
   }
@@ -1725,41 +2405,56 @@ function renderSuministros() {
   grupos.size+" grupos.";
 }
 
-function abrirModal(titulo,html) {
+/* ============================================
+   MODALES
+============================================ */
+
+function abrirModal(titulo,html){
  $("extraTitle").textContent=titulo;
  $("extraBody").innerHTML=html;
  $("extraOverlay").classList.remove("hidden");
 }
 
-function closeExtra() {
+function closeExtra(){
  $("extraOverlay").classList.add("hidden");
 }
 
-function nuevaRecepcion(item) {
+/* ============================================
+   REGISTRO DE REMITOS
+============================================ */
+
+function nuevaRecepcion(item){
  if(!isAdmin) return;
 
  const d=item.datos;
  const c=cantidades(item);
+
  const hoy=new Date().toISOString().slice(0,10);
 
  abrirModal("Documentar entrega con remito",`
-  <p><b>${escapeHtml(d.descripcion)}</b></p>
+  <p>
+   <b>${escapeHtml(d.descripcion)}</b>
+  </p>
+
   <p>
    AC ${escapeHtml(d.ac)}
    · Posición ${escapeHtml(d.pa)}
   </p>
+
   <p>
    Pedido: ${c.pedido} ·
    Entregado según Excel: ${c.conforme} ·
    Saldo: ${c.pendiente}
   </p>
+
   <p>
    Ya documentado: ${c.remitos} ·
    Pendiente de remito: ${c.sinDocumentar}
   </p>
+
   <p class="note">
-   Registrar un remito no aumenta el acumulado
-   del Excel.
+   Registrar un remito no aumenta
+   el acumulado del Excel.
   </p>
 
   <label>Fecha *</label>
@@ -1796,42 +2491,55 @@ function nuevaRecepcion(item) {
 
  $("rGuardar").onclick=async()=>{
   const boton=$("rGuardar");
-  const cantidad=Number($("rCantidad").value);
+
+  const cantidad=Number(
+   $("rCantidad").value
+  );
+
   const remito=$("rRemito").value.trim();
   const fecha=$("rFecha").value;
   const estado=$("rEstado").value;
 
   if(!fecha||!remito||
-     !Number.isFinite(cantidad)||cantidad<=0)
+     !Number.isFinite(cantidad)||cantidad<=0){
    return alert(
     "Completá fecha, remito y cantidad válida."
    );
+  }
 
   if(estado==="Conforme"&&
-     cantidad>c.sinDocumentar+0.000001)
+     cantidad>c.sinDocumentar+0.000001){
    return alert(
     "El remito supera la cantidad entregada "+
     "sin documentar según el Excel."
    );
+  }
 
   if(recepcionesDe(item.id).some(r=>
    normalizarTexto(r.remito)===
     normalizarTexto(remito)&&
    r.estado===estado&&
    parseNumero(r.cantidad)===cantidad
-  )) return alert(
-   "Ya existe un remito idéntico."
-  );
+  )){
+   return alert(
+    "Ya existe un remito idéntico."
+   );
+  }
 
   const archivo=$("rArchivo").files[0];
 
   if(archivo&&(
    archivo.size>25*1024*1024||
-   !["application/pdf","image/jpeg","image/png"]
-    .includes(archivo.type)
-  )) return alert(
-   "Adjuntá un PDF, JPG o PNG de hasta 25 MB."
-  );
+   ![
+    "application/pdf",
+    "image/jpeg",
+    "image/png"
+   ].includes(archivo.type)
+  )){
+   return alert(
+    "Adjuntá un PDF, JPG o PNG de hasta 25 MB."
+   );
+  }
 
   boton.disabled=true;
 
@@ -1860,7 +2568,12 @@ function nuevaRecepcion(item) {
     entidad:"recepcion",
     referencia:data.id,
     accion:"alta",
-    despues:{remito,fecha,cantidad,estado}
+    despues:{
+     remito,
+     fecha,
+     cantidad,
+     estado
+    }
    });
 
    let errorAdjunto="";
@@ -1878,7 +2591,8 @@ function nuevaRecepcion(item) {
     if(subida.error){
      errorAdjunto=subida.error.message;
     }else{
-     const meta=await db.from("seg_adjuntos")
+     const meta=await db
+      .from("seg_adjuntos")
       .insert({
        ambito:"recepcion",
        referencia:data.id,
@@ -1890,7 +2604,9 @@ function nuevaRecepcion(item) {
 
      if(meta.error){
       errorAdjunto=meta.error.message;
-      await db.storage.from("seg-documentos")
+
+      await db.storage
+       .from("seg-documentos")
        .remove([ruta]);
      }
     }
@@ -1908,9 +2624,12 @@ function nuevaRecepcion(item) {
     "Remito registrado. ¿Querés adjuntar el archivo ahora?"
    )){
     abrirAdjuntos(
-     "recepcion",data.id,"Remito "+remito
+     "recepcion",
+     data.id,
+     "Remito "+remito
     );
    }
+
   }catch(e){
    alert(e.message);
   }finally{
@@ -1919,20 +2638,29 @@ function nuevaRecepcion(item) {
  };
 }
 
-function verRecepciones(item) {
+/* ============================================
+   HISTORIAL DE REMITOS
+============================================ */
+
+function verRecepciones(item){
  const registros=recepcionesDe(item.id);
  const c=cantidades(item);
 
  abrirModal("Historial de remitos",`
-  <p>${escapeHtml(item.datos.descripcion)}</p>
+  <p>
+   ${escapeHtml(item.datos.descripcion)}
+  </p>
+
   <p>
    <b>Excel:</b> ${c.conforme} ·
    <b>Remitos conformes:</b> ${c.remitos} ·
    <b>Sin documentar:</b> ${c.sinDocumentar}
+
    ${c.excesoDocumentado?
     ` · <b>Exceso documentado:
      ${c.excesoDocumentado}</b>`:""}
   </p>
+
   ${registros.length?`
    <table>
     <thead>
@@ -1944,6 +2672,7 @@ function verRecepciones(item) {
       <th>Archivo</th>
      </tr>
     </thead>
+
     <tbody>
      ${registros.map((r,i)=>`
       <tr>
@@ -1952,7 +2681,8 @@ function verRecepciones(item) {
        <td>${r.cantidad}</td>
        <td>${escapeHtml(r.estado)}</td>
        <td>
-        <button data-i="${i}" class="detail">
+        <button data-i="${i}"
+         class="detail">
          Ver adjuntos
         </button>
        </td>
@@ -1966,9 +2696,14 @@ function verRecepciones(item) {
  $("extraBody").querySelectorAll("[data-i]")
   .forEach(b=>{
    b.onclick=()=>{
-    const r=registros[Number(b.dataset.i)];
+    const r=registros[
+     Number(b.dataset.i)
+    ];
+
     abrirAdjuntos(
-     "recepcion",r.id,r.remito
+     "recepcion",
+     r.id,
+     r.remito
     );
    };
   });
@@ -1978,15 +2713,18 @@ function verRecepciones(item) {
    ADJUNTOS
 ============================================ */
 
-function abrirAdjuntos(ambito,referencia,titulo) {
+function abrirAdjuntos(ambito,referencia,titulo){
  const lista=S.adjuntos.filter(x=>
-  x.ambito===ambito&&x.referencia===referencia
+  x.ambito===ambito&&
+  x.referencia===referencia
  );
 
  abrirModal("Adjuntos · "+titulo,`
   <div id="listaAdjuntos"></div>
+
   ${isAdmin?`
    <label>Categoría</label>
+
    <select id="aCategoria">
     <option>Remito</option>
     <option>Ingeniería</option>
@@ -2009,8 +2747,10 @@ function abrirAdjuntos(ambito,referencia,titulo) {
 
  const contenedor=$("listaAdjuntos");
 
- if(!lista.length)
-  contenedor.textContent="Sin archivos adjuntos.";
+ if(!lista.length){
+  contenedor.textContent=
+   "Sin archivos adjuntos.";
+ }
 
  for(const archivo of lista){
   const fila=document.createElement("div");
@@ -2029,10 +2769,13 @@ function abrirAdjuntos(ambito,referencia,titulo) {
     .from("seg-documentos")
     .createSignedUrl(archivo.ruta,60);
 
-   if(error) return alert(error.message);
+   if(error)
+    return alert(error.message);
 
    window.open(
-    data.signedUrl,"_blank","noopener"
+    data.signedUrl,
+    "_blank",
+    "noopener"
    );
   };
 
@@ -2043,14 +2786,22 @@ function abrirAdjuntos(ambito,referencia,titulo) {
  if(!isAdmin) return;
 
  $("aSubir").onclick=async()=>{
-  const archivos=[...$("aArchivos").files];
+  const archivos=[
+   ...$("aArchivos").files
+  ];
 
-  if(!archivos.length)
-   return alert("Seleccioná archivos.");
+  if(!archivos.length){
+   return alert(
+    "Seleccioná archivos."
+   );
+  }
 
   for(const archivo of archivos){
-   if(archivo.size>25*1024*1024)
-    return alert("El archivo supera 25 MB.");
+   if(archivo.size>25*1024*1024){
+    return alert(
+     "El archivo supera 25 MB."
+    );
+   }
 
    const ruta=crypto.randomUUID()+"/"+
     archivo.name.replace(
@@ -2061,7 +2812,8 @@ function abrirAdjuntos(ambito,referencia,titulo) {
     .from("seg-documentos")
     .upload(ruta,archivo);
 
-   if(error) return alert(error.message);
+   if(error)
+    return alert(error.message);
 
    const {error:metaError}=await db
     .from("seg_adjuntos")
@@ -2071,27 +2823,37 @@ function abrirAdjuntos(ambito,referencia,titulo) {
      categoria:$("aCategoria").value,
      nombre:archivo.name,
      ruta,
-     descripcion:$("aDescripcion").value.trim()
+     descripcion:
+      $("aDescripcion").value.trim()
     });
 
    if(metaError){
-    await db.storage.from("seg-documentos")
+    await db.storage
+     .from("seg-documentos")
      .remove([ruta]);
 
-    return alert(metaError.message);
+    return alert(
+     metaError.message
+    );
    }
   }
 
   await loadExtra();
-  abrirAdjuntos(ambito,referencia,titulo);
+
+  abrirAdjuntos(
+   ambito,
+   referencia,
+   titulo
+  );
  };
 }
 
 /* ============================================
+   SEGUIMIENTO DIARIO
    ACTIVIDADES ENCADENADAS
 ============================================ */
 
-function renderActividades() {
+function renderActividades(){
  const contenedor=$("taskCards");
  contenedor.replaceChildren();
 
@@ -2112,49 +2874,53 @@ function renderActividades() {
 
   card.innerHTML=`
    <div class="rowline">
-    <strong>${escapeHtml(
-     d.tema||"Actividad"
-    )}</strong>
+    <strong>
+     ${escapeHtml(
+      d.tema||"Actividad"
+     )}
+    </strong>
+
     <span class="badge plazo">
      ${escapeHtml(tarea.estado)}
     </span>
    </div>
 
    <p class="note">
-    Proyecto: ${escapeHtml(d.po||"—")}
-    · Responsable: ${
-     escapeHtml(d.responsable||"—")
-    }
+    Proyecto:
+    ${escapeHtml(d.po||"—")}
+    · Responsable:
+    ${escapeHtml(d.responsable||"—")}
    </p>
 
    <p class="note">
-    Prioridad: ${
-     escapeHtml(d.importancia||"—")
-    }
+    Prioridad:
+    ${escapeHtml(d.importancia||"—")}
    </p>
 
    ${d.actividad_previa_id?`
     <p class="note">
-     Desencadenada por: ${
-      escapeHtml(
-       previa?.datos?.tema||"Actividad anterior"
-      )
-     }
+     Desencadenada por:
+     ${escapeHtml(
+      previa?.datos?.tema||
+      "Actividad anterior"
+     )}
     </p>
    `:""}
 
-   ${d.detalle_origen&&d.actividad_previa_id?`
+   ${d.detalle_origen&&
+     d.actividad_previa_id?`
     <p class="note">
-     Gestión original: ${
-      escapeHtml(d.detalle_origen)
-     }
+     Gestión original:
+     ${escapeHtml(d.detalle_origen)}
     </p>
    `:""}
 
    ${d.solped_vinculada?`
     <p>
      SOLPED vinculada:
-     <b>${escapeHtml(d.solped_vinculada)}</b>
+     <b>${escapeHtml(
+      d.solped_vinculada
+     )}</b>
     </p>
    `:""}
 
@@ -2191,26 +2957,39 @@ function renderActividades() {
   card.querySelector(
    '[data-accion="archivos"]'
   ).onclick=()=>abrirAdjuntos(
-   "actividad",tarea.id,d.tema
+   "actividad",
+   tarea.id,
+   d.tema
   );
 
   const editar=card.querySelector(
    '[data-accion="editar"]'
   );
 
-  if(editar)
-   editar.onclick=()=>editarActividad(tarea);
+  if(editar){
+   editar.onclick=()=>
+    editarActividad(tarea);
+  }
 
   contenedor.append(card);
  }
 
+ const bloqueadas=S.actividades.filter(t=>
+  t.estado==="Bloqueada"
+ ).length;
+
  $("taskCount").textContent=
-  visibles.length+" actividades visibles · "+
-  (S.actividades.length-visibles.length)+
+  visibles.length+
+  " actividades visibles · "+
+  bloqueadas+
   " pendientes de desencadenar.";
 }
 
-function editarActividad(tarea) {
+/* ============================================
+   ACTUALIZAR ACTIVIDAD
+============================================ */
+
+function editarActividad(tarea){
  if(!isAdmin) return;
 
  const d=tarea.datos||{};
@@ -2231,7 +3010,8 @@ function editarActividad(tarea) {
    </p>
   `:""}
 
-  ${d.detalle_origen&&d.actividad_previa_id?`
+  ${d.detalle_origen&&
+    d.actividad_previa_id?`
    <p class="note">
     Gestión original:
     ${escapeHtml(d.detalle_origen)}
@@ -2239,6 +3019,7 @@ function editarActividad(tarea) {
   `:""}
 
   <label>Estado</label>
+
   <select id="tEstado">
    <option>Pendiente</option>
    <option>En proceso</option>
@@ -2261,8 +3042,11 @@ function editarActividad(tarea) {
   }">
 
   <label>Observaciones</label>
+
   <textarea id="tObs">${
-   escapeHtml(tarea.observaciones||"")
+   escapeHtml(
+    tarea.observaciones||""
+   )
   }</textarea>
 
   <button id="tGuardar" class="primary">
@@ -2281,7 +3065,8 @@ function editarActividad(tarea) {
   try{
    const estado=$("tEstado").value;
    const solped=$("tSolped").value.trim();
-   const observaciones=$("tObs").value.trim();
+   const observaciones=
+    $("tObs").value.trim();
 
    if(
     estado==="Finalizado"&&
@@ -2297,7 +3082,8 @@ function editarActividad(tarea) {
     estado,
     solped_generada:solped||null,
     observaciones,
-    actualizado_en:new Date().toISOString()
+    actualizado_en:
+     new Date().toISOString()
    };
 
    const {error}=await db
@@ -2307,24 +3093,35 @@ function editarActividad(tarea) {
 
    if(error) throw error;
 
-   await db.from("seg_auditoria").insert({
-    entidad:"actividad",
-    referencia:tarea.id,
-    accion:"actualizacion",
-    antes:{
-     estado:tarea.estado,
-     solped_generada:tarea.solped_generada,
-     observaciones:tarea.observaciones
-    },
-    despues:cambios
-   });
+   await db.from("seg_auditoria")
+    .insert({
+     entidad:"actividad",
+     referencia:tarea.id,
+     accion:"actualizacion",
 
-   // Al finalizar, habilitar solamente
-   // la actividad siguiente inmediata.
+     antes:{
+      estado:tarea.estado,
+      solped_generada:
+       tarea.solped_generada,
+      observaciones:
+       tarea.observaciones
+     },
+
+     despues:cambios
+    });
+
+   /*
+    Al finalizar una actividad:
+    - Se habilita únicamente la siguiente.
+    - Se hereda la SOLPED.
+    - Se conserva la gestión original.
+    - NO se actualiza seg_suministros.
+   */
 
    if(estado==="Finalizado"){
     const siguientes=S.actividades.filter(t=>
-     t.datos?.actividad_previa_id===tarea.id&&
+     t.datos?.actividad_previa_id===
+      tarea.id&&
      t.estado==="Bloqueada"
     );
 
@@ -2336,7 +3133,9 @@ function editarActividad(tarea) {
 
      const datos={
       ...siguiente.datos,
+
       solped_vinculada:heredada,
+
       detalle_origen:
        siguiente.datos.detalle_origen||
        d.detalle_origen||
@@ -2363,17 +3162,22 @@ function editarActividad(tarea) {
       );
      }
 
-     await db.from("seg_auditoria").insert({
-      entidad:"actividad",
-      referencia:siguiente.id,
-      accion:"desencadenada",
-      antes:{estado:"Bloqueada"},
-      despues:{
-       estado:"Pendiente",
-       origen:tarea.id,
-       solped:heredada
-      }
-     });
+     await db.from("seg_auditoria")
+      .insert({
+       entidad:"actividad",
+       referencia:siguiente.id,
+       accion:"desencadenada",
+
+       antes:{
+        estado:"Bloqueada"
+       },
+
+       despues:{
+        estado:"Pendiente",
+        origen:tarea.id,
+        solped:heredada
+       }
+      });
     }
    }
 
@@ -2388,82 +3192,107 @@ function editarActividad(tarea) {
 }
 
 /* ============================================
-   RESPALDO EXCEL
+   EXPORTAR RESPALDO
 ============================================ */
 
-function exportBackup() {
- if(!isAdmin)
+function exportBackup(){
+ if(!isAdmin){
   return alert(
    "Solo administración puede exportar."
   );
+ }
 
  const wb=XLSX.utils.book_new();
 
  function agregar(nombre,filas){
   const ws=XLSX.utils.json_to_sheet(
-   filas.length?filas:[{"Sin registros":""}]
+   filas.length?
+    filas:
+    [{"Sin registros":""}]
   );
+
   XLSX.utils.book_append_sheet(
-   wb,ws,nombre
+   wb,
+   ws,
+   nombre
   );
  }
 
- agregar("Suministros",S.suministros.map(x=>({
-  id:x.id,
-  ...x.datos,
-  presente_ultima_importacion:
-   x.presente_ultima_importacion,
-  alerta:alertaSuministro(x)
- })));
+ agregar(
+  "Suministros",
+  S.suministros.map(x=>({
+   id:x.id,
+   ...x.datos,
+   presente_ultima_importacion:
+    x.presente_ultima_importacion,
+   alerta:alertaSuministro(x)
+  }))
+ );
 
- agregar("Entregas",S.recepciones.map(x=>({
-  id:x.id,
-  suministro_id:x.suministro_id,
-  ac:x.ac,
-  posicion_ac:x.posicion_ac,
-  solped:x.solped,
-  fecha:x.fecha,
-  remito:x.remito,
-  cantidad:x.cantidad,
-  estado:x.estado,
-  observaciones:x.observaciones,
-  fecha_saldo:x.fecha_saldo,
-  anulado:x.anulado
- })));
+ agregar(
+  "Entregas",
+  S.recepciones.map(x=>({
+   id:x.id,
+   suministro_id:x.suministro_id,
+   ac:x.ac,
+   posicion_ac:x.posicion_ac,
+   solped:x.solped,
+   fecha:x.fecha,
+   remito:x.remito,
+   cantidad:x.cantidad,
+   estado:x.estado,
+   observaciones:x.observaciones,
+   fecha_saldo:x.fecha_saldo,
+   anulado:x.anulado
+  }))
+ );
 
- agregar("Saldos",S.suministros.map(x=>({
-  id:x.id,
-  solped:x.datos.sp,
-  ac:x.datos.ac,
-  posicion_ac:x.datos.pa,
-  descripcion:x.datos.descripcion,
-  pedido:cantidades(x).pedido,
-  recibido_excel:cantidades(x).conforme,
-  documentado_remitos:cantidades(x).remitos,
-  sin_documentar:
-   cantidades(x).sinDocumentar,
-  exceso_documentado:
-   cantidades(x).excesoDocumentado,
-  pendiente:cantidades(x).pendiente
- })));
+ agregar(
+  "Saldos",
+  S.suministros.map(x=>({
+   id:x.id,
+   solped:x.datos.sp,
+   ac:x.datos.ac,
+   posicion_ac:x.datos.pa,
+   descripcion:x.datos.descripcion,
+   pedido:cantidades(x).pedido,
+   recibido_excel:
+    cantidades(x).conforme,
+   documentado_remitos:
+    cantidades(x).remitos,
+   sin_documentar:
+    cantidades(x).sinDocumentar,
+   exceso_documentado:
+    cantidades(x).excesoDocumentado,
+   pendiente:
+    cantidades(x).pendiente
+  }))
+ );
 
- agregar("Actividades",S.actividades.map(x=>({
-  id:x.id,
-  orden:x.orden,
-  ...x.datos,
-  estado:x.estado,
-  solped_generada:x.solped_generada,
-  observaciones:x.observaciones
- })));
+ agregar(
+  "Actividades",
+  S.actividades.map(x=>({
+   id:x.id,
+   orden:x.orden,
+   ...x.datos,
+   estado:x.estado,
+   solped_generada:
+    x.solped_generada,
+   observaciones:x.observaciones
+  }))
+ );
 
- agregar("Adjuntos",S.adjuntos.map(x=>({
-  ambito:x.ambito,
-  referencia:x.referencia,
-  categoria:x.categoria,
-  nombre:x.nombre,
-  descripcion:x.descripcion,
-  ruta:x.ruta
- })));
+ agregar(
+  "Adjuntos",
+  S.adjuntos.map(x=>({
+   ambito:x.ambito,
+   referencia:x.referencia,
+   categoria:x.categoria,
+   nombre:x.nombre,
+   descripcion:x.descripcion,
+   ruta:x.ruta
+  }))
+ );
 
  XLSX.writeFile(
   wb,
@@ -2478,24 +3307,30 @@ function exportBackup() {
 ============================================ */
 
 $("search").addEventListener(
- "input",renderIngenieria
+ "input",
+ renderIngenieria
 );
 
 $("specialty").addEventListener(
- "change",renderIngenieria
+ "change",
+ renderIngenieria
 );
 
 $("dateFilter").addEventListener(
- "change",renderIngenieria
+ "change",
+ renderIngenieria
 );
 
 $("password").addEventListener(
- "keydown",e=>{
-  if(e.key==="Enter") login();
+ "keydown",
+ e=>{
+  if(e.key==="Enter")
+   login();
  }
 );
 
 initialize();
+
 </script>
 </body>
 </html>

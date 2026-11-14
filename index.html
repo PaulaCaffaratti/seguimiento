@@ -2387,17 +2387,17 @@ function renderSuministros(){
 
  const indicadores=[
   [
-   "Posiciones",
+   "Items",
    todos.length,
    "todos"
   ],
   [
-   "Pendientes de gestión",
+   "Pendientes",
    todos.filter(x=>!x.datos.sp&&!x.datos.ac).length,
    "Pendiente de gestión"
   ],
   [
-   "AC únicas",
+   "AC",
    new Set(
     todos.map(x=>x.datos.ac).filter(Boolean)
    ).size,

@@ -2918,7 +2918,9 @@ function verRecepciones(item){
    ADJUNTOS
 ============================================ */
 
+
 function abrirAdjuntos(ambito,referencia,titulo){
+
  const lista=S.adjuntos.filter(x=>
   x.ambito===ambito&&
   x.referencia===referencia
@@ -2953,29 +2955,43 @@ function abrirAdjuntos(ambito,referencia,titulo){
  const contenedor=$("listaAdjuntos");
 
  if(!lista.length){
-  contenedor.textContent=
-   "Sin archivos adjuntos.";
+  contenedor.textContent="Sin archivos adjuntos.";
  }
 
  for(const archivo of lista){
+
   const fila=document.createElement("div");
-  fila.className="rowline";
+  fila.className="material-row";
 
-  const nombre=document.createElement("span");
-  nombre.textContent=
-   archivo.nombre+" · "+archivo.categoria;
+  const nombre=document.createElement("strong");
+  nombre.textContent=archivo.nombre;
 
-  const boton=document.createElement("button");
-  boton.className="detail";
-  boton.textContent="Abrir";
+  const categoria=document.createElement("p");
+  categoria.className="note";
+  categoria.textContent=
+   (archivo.categoria||"Sin categoría")+
+   (archivo.descripcion?
+    " · "+archivo.descripcion:"");
 
-  boton.onclick=async()=>{
+  const acciones=document.createElement("div");
+  acciones.className="rowline";
+  acciones.style.justifyContent="flex-start";
+
+  // ABRIR ARCHIVO
+
+  const abrir=document.createElement("button");
+  abrir.className="detail";
+  abrir.textContent="Abrir";
+
+  abrir.onclick=async()=>{
    const {data,error}=await db.storage
     .from("seg-documentos")
     .createSignedUrl(archivo.ruta,60);
 
-   if(error)
-    return alert(error.message);
+   if(error){
+    alert(error.message);
+    return;
+   }
 
    window.open(
     data.signedUrl,
@@ -2984,28 +3000,208 @@ function abrirAdjuntos(ambito,referencia,titulo){
    );
   };
 
-  fila.append(nombre,boton);
+  acciones.append(abrir);
+
+  if(isAdmin){
+
+   // EDITAR INFORMACIÓN DEL ADJUNTO
+
+   const editar=document.createElement("button");
+   editar.className="detail";
+   editar.textContent="✎ Editar";
+
+   editar.onclick=()=>{
+
+    const categorias=[
+     "Remito",
+     "Ingeniería",
+     "Mails y comunicaciones",
+     "Comerciales",
+     "Otros"
+    ];
+
+    abrirModal("Editar adjunto",`
+     <p>
+      <b>${escapeHtml(archivo.nombre)}</b>
+     </p>
+
+     <label>Nombre visible</label>
+     <input id="editNombre"
+      value="${escapeHtml(archivo.nombre)}">
+
+     <label>Categoría</label>
+     <select id="editCategoria">
+      ${categorias.map(c=>`
+       <option value="${escapeHtml(c)}">
+        ${escapeHtml(c)}
+       </option>
+      `).join("")}
+     </select>
+
+     <label>Descripción</label>
+     <textarea id="editDescripcion">${
+      escapeHtml(archivo.descripcion||"")
+     }</textarea>
+
+     <div class="rowline">
+      <button class="detail" id="editCancelar">
+       Cancelar
+      </button>
+
+      <button class="primary" id="editGuardar">
+       Guardar cambios
+      </button>
+     </div>
+    `);
+
+    $("editCategoria").value=
+     archivo.categoria||"Otros";
+
+    $("editCancelar").onclick=()=>{
+     abrirAdjuntos(ambito,referencia,titulo);
+    };
+
+    $("editGuardar").onclick=async()=>{
+
+     const boton=$("editGuardar");
+
+     const nuevoNombre=
+      $("editNombre").value.trim();
+
+     const nuevaCategoria=
+      $("editCategoria").value;
+
+     const nuevaDescripcion=
+      $("editDescripcion").value.trim();
+
+     if(!nuevoNombre){
+      alert("Ingresá un nombre.");
+      return;
+     }
+
+     boton.disabled=true;
+
+     const {data,error}=await db
+      .from("seg_adjuntos")
+      .update({
+       nombre:nuevoNombre,
+       categoria:nuevaCategoria,
+       descripcion:nuevaDescripcion
+      })
+      .eq("id",archivo.id)
+      .select("id");
+
+     if(error){
+      boton.disabled=false;
+      alert("Error al editar: "+error.message);
+      return;
+     }
+
+     if(!data?.length){
+      boton.disabled=false;
+      alert("No se pudo actualizar el adjunto. Revisá los permisos.");
+      return;
+     }
+
+     await loadExtra();
+
+     abrirAdjuntos(ambito,referencia,titulo);
+    };
+   };
+
+   acciones.append(editar);
+
+   // ELIMINAR ARCHIVO
+
+   const eliminar=document.createElement("button");
+   eliminar.textContent="🗑 Eliminar";
+   eliminar.style.color="#bb3540";
+   eliminar.style.borderColor="#edc4c8";
+
+   eliminar.onclick=async()=>{
+
+    const confirmar=confirm(
+     "¿Eliminar definitivamente este archivo?\n\n"+
+     archivo.nombre+
+     "\n\nEsta acción no se puede deshacer."
+    );
+
+    if(!confirmar) return;
+
+    eliminar.disabled=true;
+
+    /*
+      Primero se elimina el archivo de Storage.
+      Después se elimina su registro en la tabla.
+    */
+
+    const {error:storageError}=await db.storage
+     .from("seg-documentos")
+     .remove([archivo.ruta]);
+
+    if(storageError){
+     eliminar.disabled=false;
+     alert(
+      "No se pudo eliminar el archivo: "+
+      storageError.message
+     );
+     return;
+    }
+
+    const {data,error}=await db
+     .from("seg_adjuntos")
+     .delete()
+     .eq("id",archivo.id)
+     .select("id");
+
+    if(error||!data?.length){
+     eliminar.disabled=false;
+
+     alert(
+      "El archivo se eliminó de Storage, "+
+      "pero no se pudo eliminar su registro. "+
+      "Revisá los permisos de Supabase. "+
+      (error?.message||"")
+     );
+
+     await loadExtra();
+     return;
+    }
+
+    await loadExtra();
+
+    abrirAdjuntos(ambito,referencia,titulo);
+   };
+
+   acciones.append(eliminar);
+  }
+
+  fila.append(nombre,categoria,acciones);
   contenedor.append(fila);
  }
+
+ // SUBIR NUEVOS ARCHIVOS
 
  if(!isAdmin) return;
 
  $("aSubir").onclick=async()=>{
-  const archivos=[
-   ...$("aArchivos").files
-  ];
+
+  const archivos=[...$("aArchivos").files];
 
   if(!archivos.length){
-   return alert(
-    "Seleccioná archivos."
-   );
+   alert("Seleccioná archivos.");
+   return;
   }
 
+  const boton=$("aSubir");
+  boton.disabled=true;
+
   for(const archivo of archivos){
+
    if(archivo.size>25*1024*1024){
-    return alert(
-     "El archivo supera 25 MB."
-    );
+    alert("El archivo supera 25 MB.");
+    boton.disabled=false;
+    return;
    }
 
    const ruta=crypto.randomUUID()+"/"+
@@ -3017,8 +3213,11 @@ function abrirAdjuntos(ambito,referencia,titulo){
     .from("seg-documentos")
     .upload(ruta,archivo);
 
-   if(error)
-    return alert(error.message);
+   if(error){
+    alert(error.message);
+    boton.disabled=false;
+    return;
+   }
 
    const {error:metaError}=await db
     .from("seg_adjuntos")
@@ -3033,23 +3232,20 @@ function abrirAdjuntos(ambito,referencia,titulo){
     });
 
    if(metaError){
+
     await db.storage
      .from("seg-documentos")
      .remove([ruta]);
 
-    return alert(
-     metaError.message
-    );
+    alert(metaError.message);
+    boton.disabled=false;
+    return;
    }
   }
 
   await loadExtra();
 
-  abrirAdjuntos(
-   ambito,
-   referencia,
-   titulo
-  );
+  abrirAdjuntos(ambito,referencia,titulo);
  };
 }
 

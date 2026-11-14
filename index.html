@@ -968,9 +968,16 @@ function claveSuministro(d) {
  return clavePartes("SINPOS",d.ri,d.codigo,d.descripcion);
 }
 
+
 function claveActividad(d) {
- return clavePartes(d.po,d.responsable,d.tema);
+ return clavePartes(
+  d.po,
+  d.responsable,
+  d.tema,
+  d.ocurrencia || 1
+ );
 }
+
 
 function combinarDatos(anterior,nuevo) {
  const resultado={...(anterior||{})};
@@ -1138,17 +1145,20 @@ async function importSeguimiento() {
     conflictos.slice(0,5).join("; ")
    );
 
+
   const actualesTareas=new Map();
 
   for (const t of S.actividades) {
    const k=claveActividad(t.datos);
+
    if (!actualesTareas.has(k))
     actualesTareas.set(k,[]);
+
    actualesTareas.get(k).push(t);
   }
 
   const propuestasTareas=[];
-  const vistosTareas=new Set();
+  const ocurrencias=new Map();
 
   for (let i=0;i<tareas.length;i++) {
    const r=tareas[i];
@@ -1157,18 +1167,23 @@ async function importSeguimiento() {
     po:String(campo(
      r,"PO","Columna1","Pedido Obra"
     )).trim(),
+
     responsable:String(campo(
      r,"Responsable"
     )).trim(),
+
     tema:String(campo(
      r,"Tema","Actividad"
     )).trim(),
+
     importancia:String(campo(
      r,"Importancia","Prioridad"
     )).trim(),
+
     consultar:String(campo(
      r,"Consultar"
     )).trim(),
+
     estatus_excel:String(campo(
      r,"Estatus","Estado"
     )).trim()
@@ -1176,16 +1191,21 @@ async function importSeguimiento() {
 
    if (!d.tema) continue;
 
+   // Identificar las repeticiones dentro
+   // del mismo proyecto, responsable y tema.
+   const base=clavePartes(
+    d.po,
+    d.responsable,
+    d.tema
+   );
+
+   const numero=(ocurrencias.get(base)||0)+1;
+
+   ocurrencias.set(base,numero);
+
+   d.ocurrencia=numero;
+
    const k=claveActividad(d);
-
-   if (vistosTareas.has(k)) {
-    conflictos.push(
-     "Actividad duplicada: "+d.tema
-    );
-    continue;
-   }
-
-   vistosTareas.add(k);
 
    const matches=actualesTareas.get(k)||[];
 
@@ -1212,6 +1232,7 @@ async function importSeguimiento() {
     previo
    });
   }
+
 
   if (conflictos.length)
    throw Error(

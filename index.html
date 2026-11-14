@@ -487,6 +487,136 @@ tr:hover{background:#f8fafc}
  .pair strong{font-size:16px}
  .seg-kpis .card strong{font-size:23px}
 }
+ 
+/* SEGUIMIENTO DIARIO - VISTA EJECUTIVA */
+
+.task-filters{
+ display:grid;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:12px;
+ margin:18px 0 12px;
+}
+.task-filters label{
+ display:block;
+ font-size:12px;
+ font-weight:700;
+ color:var(--muted);
+ margin-bottom:7px;
+}
+.task-filters select{width:100%}
+
+.task-viewbar{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ flex-wrap:wrap;
+ gap:12px;
+ margin:14px 0 20px;
+}
+.task-viewbar select{min-width:190px}
+
+.task-view-switch{
+ display:flex;
+ gap:5px;
+ padding:4px;
+ background:#e9eef2;
+ border-radius:10px;
+}
+.task-view-switch button{
+ border:0;
+ background:transparent;
+ padding:9px 13px;
+ font-weight:600;
+}
+.task-view-switch button.active{
+ background:#fff;
+ box-shadow:0 2px 6px #152b3c16;
+}
+
+.task-kpis{
+ display:grid;
+ grid-template-columns:repeat(4,minmax(0,1fr));
+ gap:12px;
+ margin:18px 0;
+}
+.task-kpi{
+ background:white;
+ border:1px solid var(--line);
+ border-radius:11px;
+ padding:18px;
+}
+.task-kpi small{
+ display:block;
+ color:var(--muted);
+ margin-bottom:9px;
+}
+.task-kpi strong{font-size:28px}
+
+.task-person-head{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ margin:24px 0 12px;
+ padding-bottom:10px;
+ border-bottom:1px solid var(--line);
+ font-size:15px;
+ font-weight:700;
+}
+.task-person-head small{
+ color:var(--muted);
+ font-weight:400;
+}
+
+.task-card{
+ border-left:5px solid #b7c1cb;
+ transition:box-shadow .2s,transform .2s;
+}
+.task-card:hover{
+ transform:translateY(-1px);
+ box-shadow:0 5px 18px #16263812;
+}
+.task-priority-alta{
+ border-left-color:#c43c47;
+ background:linear-gradient(90deg,#fff4f4,#fff 30%);
+}
+.task-priority-media{border-left-color:#dfa23a}
+.task-priority-baja{border-left-color:#29946a}
+
+.task-badge-alta{
+ background:#fce4e6;
+ color:#a82935;
+}
+.task-badge-media{
+ background:#fff0d5;
+ color:#956017;
+}
+.task-badge-baja{
+ background:#dff3e8;
+ color:#206d49;
+}
+.task-badge-otra{
+ background:#edf0f4;
+ color:#526174;
+}
+.task-estado-finalizado{
+ background:#dff3e8;
+ color:#206d49;
+}
+.task-estado-proceso{
+ background:#e3edf8;
+ color:#375c7a;
+}
+.task-estado-pendiente{
+ background:#fff0d7;
+ color:#946017;
+}
+
+@media(max-width:700px){
+ .task-filters{grid-template-columns:1fr}
+ .task-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .task-viewbar{align-items:stretch}
+}
+
 </style>
 </head>
 
@@ -3254,6 +3384,28 @@ function abrirAdjuntos(ambito,referencia,titulo){
    ACTIVIDADES ENCADENADAS
 ============================================ */
 
+
+const taskVista={
+ modo:"persona",
+ orden:"prioridad",
+ responsable:"",
+ prioridad:"",
+ estado:""
+};
+
+function prioridadActividad(t){
+ const v=normalizarTexto(t.datos?.importancia||"");
+
+ if(["alta","alto","urgente","critica","critico"].includes(v))
+  return "alta";
+ if(["media","medio","moderada","moderado"].includes(v))
+  return "media";
+ if(["baja","bajo"].includes(v))
+  return "baja";
+
+ return "otra";
+}
+
 function renderActividades(){
  const contenedor=$("taskCards");
  contenedor.replaceChildren();
@@ -3262,56 +3414,264 @@ function renderActividades(){
   t.estado!=="Bloqueada"
  );
 
- for(const tarea of visibles){
+ let controles=$("taskControles");
+
+ if(!controles){
+  controles=document.createElement("div");
+  controles.id="taskControles";
+  $("taskCount").before(controles);
+
+  controles.innerHTML=`
+   <div class="task-kpis" id="taskIndicadores"></div>
+
+   <div class="task-filters">
+    <div>
+     <label>Responsable</label>
+     <select id="taskResponsable"></select>
+    </div>
+
+    <div>
+     <label>Prioridad</label>
+     <select id="taskPrioridad">
+      <option value="">Todas las prioridades</option>
+      <option value="alta">Alta</option>
+      <option value="media">Media</option>
+      <option value="baja">Baja</option>
+      <option value="otra">Sin clasificar</option>
+     </select>
+    </div>
+
+    <div>
+     <label>Estado</label>
+     <select id="taskEstadoFiltro">
+      <option value="">Todos los estados</option>
+      <option value="Pendiente">Pendiente</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Finalizado">Finalizado</option>
+     </select>
+    </div>
+   </div>
+
+   <div class="task-viewbar">
+    <div class="task-view-switch">
+     <button id="taskPorPersona">Por persona</button>
+     <button id="taskTodas">Todas las actividades</button>
+    </div>
+
+    <div class="rowline">
+     <select id="taskOrden">
+      <option value="prioridad">Ordenar por prioridad</option>
+      <option value="vencimiento">Ordenar por vencimiento</option>
+      <option value="nombre">Actividad A–Z</option>
+     </select>
+
+     <button id="taskLimpiar">Limpiar filtros</button>
+    </div>
+   </div>
+  `;
+
+  $("taskResponsable").onchange=v=>{
+   taskVista.responsable=v.target.value;
+   renderActividades();
+  };
+
+  $("taskPrioridad").onchange=v=>{
+   taskVista.prioridad=v.target.value;
+   renderActividades();
+  };
+
+  $("taskEstadoFiltro").onchange=v=>{
+   taskVista.estado=v.target.value;
+   renderActividades();
+  };
+
+  $("taskOrden").onchange=v=>{
+   taskVista.orden=v.target.value;
+   renderActividades();
+  };
+
+  $("taskPorPersona").onclick=()=>{
+   taskVista.modo="persona";
+   renderActividades();
+  };
+
+  $("taskTodas").onclick=()=>{
+   taskVista.modo="todas";
+   renderActividades();
+  };
+
+  $("taskLimpiar").onclick=()=>{
+   taskVista.responsable="";
+   taskVista.prioridad="";
+   taskVista.estado="";
+   renderActividades();
+  };
+ }
+
+ const responsables=[...new Set(
+  visibles.map(t=>
+   String(t.datos?.responsable||"").trim()
+  ).filter(Boolean)
+ )].sort((a,b)=>a.localeCompare(b,"es"));
+
+ $("taskResponsable").innerHTML=
+  '<option value="">Todos los responsables</option>'+
+  responsables.map(r=>
+   `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`
+  ).join("");
+
+ if(!responsables.includes(taskVista.responsable))
+  taskVista.responsable="";
+
+ $("taskResponsable").value=taskVista.responsable;
+ $("taskPrioridad").value=taskVista.prioridad;
+ $("taskEstadoFiltro").value=taskVista.estado;
+ $("taskOrden").value=taskVista.orden;
+
+ $("taskPorPersona").classList.toggle(
+  "active",taskVista.modo==="persona"
+ );
+ $("taskTodas").classList.toggle(
+  "active",taskVista.modo==="todas"
+ );
+
+ const filtradas=visibles.filter(t=>{
+  const d=t.datos||{};
+
+  if(taskVista.responsable&&
+     String(d.responsable||"").trim()!==taskVista.responsable)
+   return false;
+
+  if(taskVista.prioridad&&
+     prioridadActividad(t)!==taskVista.prioridad)
+   return false;
+
+  if(taskVista.estado&&t.estado!==taskVista.estado)
+   return false;
+
+  return true;
+ });
+
+ const contar=fn=>filtradas.filter(fn).length;
+
+ $("taskIndicadores").innerHTML=`
+  <div class="task-kpi">
+   <small>Actividades</small>
+   <strong>${filtradas.length}</strong>
+  </div>
+
+  <div class="task-kpi">
+   <small>Prioridad alta</small>
+   <strong style="color:#bb3540">
+    ${contar(t=>prioridadActividad(t)==="alta")}
+   </strong>
+  </div>
+
+  <div class="task-kpi">
+   <small>En proceso</small>
+   <strong style="color:#426b91">
+    ${contar(t=>t.estado==="En proceso")}
+   </strong>
+  </div>
+
+  <div class="task-kpi">
+   <small>Finalizadas</small>
+   <strong style="color:#20815a">
+    ${contar(t=>t.estado==="Finalizado")}
+   </strong>
+  </div>
+ `;
+
+ const ordenPrioridad={
+  alta:0,media:1,baja:2,otra:3
+ };
+
+ function fechaOrden(t){
+  const d=t.datos||{};
+  const valor=d.fecha_vencimiento||
+   d.fecha_limite||d.fecha_objetivo||
+   d.fecha_compromiso||d.fecha_plan||"";
+
+  const fecha=parseFecha(valor);
+  return fecha?fecha:"9999-12-31";
+ }
+
+ const ordenadas=[...filtradas].sort((a,b)=>{
+  if(taskVista.orden==="prioridad"){
+   const diferencia=
+    ordenPrioridad[prioridadActividad(a)]-
+    ordenPrioridad[prioridadActividad(b)];
+
+   if(diferencia) return diferencia;
+  }
+
+  if(taskVista.orden==="vencimiento"){
+   const diferencia=fechaOrden(a).localeCompare(fechaOrden(b));
+   if(diferencia) return diferencia;
+  }
+
+  return String(a.datos?.tema||"").localeCompare(
+   String(b.datos?.tema||""),"es"
+  );
+ });
+
+ function crearTarjeta(tarea){
   const d=tarea.datos||{};
+  const p=prioridadActividad(tarea);
 
   const previa=d.actividad_previa_id?
-   S.actividades.find(t=>
-    t.id===d.actividad_previa_id
-   ):null;
+   S.actividades.find(x=>x.id===d.actividad_previa_id):null;
+
+  const nombrePrioridad={
+   alta:"Alta",
+   media:"Media",
+   baja:"Baja",
+   otra:d.importancia||"Sin prioridad"
+  }[p];
+
+  const claseEstado=
+   tarea.estado==="Finalizado"?
+    "task-estado-finalizado":
+   tarea.estado==="En proceso"?
+    "task-estado-proceso":
+    "task-estado-pendiente";
 
   const card=document.createElement("div");
-  card.className="task-card";
+  card.className="task-card task-priority-"+p;
 
   card.innerHTML=`
    <div class="rowline">
-    <strong>
-     ${escapeHtml(
-      d.tema||"Actividad"
-     )}
+    <strong style="font-size:15px">
+     ${escapeHtml(d.tema||"Actividad")}
     </strong>
 
-    <span class="badge plazo">
-     ${escapeHtml(tarea.estado)}
-    </span>
+    <div class="rowline">
+     <span class="badge task-badge-${p}">
+      ${escapeHtml(nombrePrioridad)}
+     </span>
+     <span class="badge ${claseEstado}">
+      ${escapeHtml(tarea.estado)}
+     </span>
+    </div>
    </div>
 
    <p class="note">
-    Proyecto:
-    ${escapeHtml(d.po||"—")}
-    · Responsable:
+    <b>Proyecto:</b> ${escapeHtml(d.po||"—")}
+    &nbsp; · &nbsp;
+    <b>Responsable:</b>
     ${escapeHtml(d.responsable||"—")}
-   </p>
-
-   <p class="note">
-    Prioridad:
-    ${escapeHtml(d.importancia||"—")}
    </p>
 
    ${d.actividad_previa_id?`
     <p class="note">
-     Desencadenada por:
-     ${escapeHtml(
-      previa?.datos?.tema||
-      "Actividad anterior"
-     )}
+     <b>Desencadenada por:</b>
+     ${escapeHtml(previa?.datos?.tema||"Actividad anterior")}
     </p>
    `:""}
 
-   ${d.detalle_origen&&
-     d.actividad_previa_id?`
+   ${d.detalle_origen&&d.actividad_previa_id?`
     <p class="note">
-     Gestión original:
+     <b>Gestión original:</b>
      ${escapeHtml(d.detalle_origen)}
     </p>
    `:""}
@@ -3319,18 +3679,14 @@ function renderActividades(){
    ${d.solped_vinculada?`
     <p>
      SOLPED vinculada:
-     <b>${escapeHtml(
-      d.solped_vinculada
-     )}</b>
+     <b>${escapeHtml(d.solped_vinculada)}</b>
     </p>
    `:""}
 
    ${tarea.solped_generada?`
     <p>
      SOLPED generada:
-     <b>${escapeHtml(
-      tarea.solped_generada
-     )}</b>
+     <b>${escapeHtml(tarea.solped_generada)}</b>
     </p>
    `:""}
 
@@ -3341,38 +3697,71 @@ function renderActividades(){
    `:""}
 
    <div class="rowline">
-    <button class="detail"
-     data-accion="archivos">
+    <button class="detail" data-accion="archivos">
      Correos y documentos
     </button>
 
     ${isAdmin?`
-     <button class="detail"
-      data-accion="editar">
+     <button class="detail" data-accion="editar">
       Actualizar
      </button>
     `:""}
    </div>
   `;
 
-  card.querySelector(
-   '[data-accion="archivos"]'
-  ).onclick=()=>abrirAdjuntos(
-   "actividad",
-   tarea.id,
-   d.tema
-  );
+  card.querySelector('[data-accion="archivos"]')
+   .onclick=()=>abrirAdjuntos(
+    "actividad",tarea.id,d.tema
+   );
 
-  const editar=card.querySelector(
-   '[data-accion="editar"]'
-  );
+  const editar=card.querySelector('[data-accion="editar"]');
+  if(editar)
+   editar.onclick=()=>editarActividad(tarea);
 
-  if(editar){
-   editar.onclick=()=>
-    editarActividad(tarea);
+  return card;
+ }
+
+ if(taskVista.modo==="persona"){
+  const grupos=[...new Set(
+   ordenadas.map(t=>
+    String(t.datos?.responsable||"").trim()||
+    "Sin responsable"
+   )
+  )].sort((a,b)=>a.localeCompare(b,"es"));
+
+  for(const persona of grupos){
+   const tareas=ordenadas.filter(t=>
+    (String(t.datos?.responsable||"").trim()||
+     "Sin responsable")===persona
+   );
+
+   const encabezado=document.createElement("div");
+   encabezado.className="task-person-head";
+
+   const nombre=document.createElement("span");
+   nombre.textContent=persona;
+
+   const cantidad=document.createElement("small");
+   cantidad.textContent=tareas.length+
+    (tareas.length===1?" tema":" temas");
+
+   encabezado.append(nombre,cantidad);
+   contenedor.append(encabezado);
+
+   tareas.forEach(t=>contenedor.append(crearTarjeta(t)));
   }
+ }else{
+  ordenadas.forEach(t=>
+   contenedor.append(crearTarjeta(t))
+  );
+ }
 
-  contenedor.append(card);
+ if(!ordenadas.length){
+  const vacio=document.createElement("p");
+  vacio.className="note";
+  vacio.textContent=
+   "No hay actividades que coincidan con los filtros.";
+  contenedor.append(vacio);
  }
 
  const bloqueadas=S.actividades.filter(t=>
@@ -3380,11 +3769,11 @@ function renderActividades(){
  ).length;
 
  $("taskCount").textContent=
-  visibles.length+
-  " actividades visibles · "+
-  bloqueadas+
+  filtradas.length+" de "+visibles.length+
+  " actividades visibles · "+bloqueadas+
   " pendientes de desencadenar.";
 }
+
 
 /* ============================================
    ACTUALIZAR ACTIVIDAD

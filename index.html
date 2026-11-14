@@ -364,7 +364,9 @@ consideran presentados. Las alertas preventivas se aplican
   <h3>Importar seguimiento</h3>
   <p class="note">
    Excel con hojas Suministros y Seguimiento.
-   Las recepciones y adjuntos registrados no se eliminan.
+
+    La cantidad entregada del Excel es acumulada. Los remitos documentan ese total y no lo incrementan.
+    Las recepciones y adjuntos registrados no se eliminan.
   </p>
   <input id="segExcel" type="file" accept=".xlsx,.xls">
   <button class="primary" onclick="importSeguimiento()">
@@ -959,11 +961,15 @@ function clavePartes(...partes) {
 }
 
 function claveSuministro(d) {
- return clavePartes(d.sp,d.ps,d.ac,d.pa,d.codigo);
+ // La SOLPED y su posición permanecen aunque cambie el AC.
+ // Si no existe SOLPED, usar AC y posición; no fusionar filas ambiguas.
+ if (d.sp && d.ps) return clavePartes("SP",d.sp,d.ps);
+ if (d.ac && d.pa) return clavePartes("AC",d.ac,d.pa);
+ return clavePartes("SINPOS",d.ri,d.codigo,d.descripcion);
 }
 
 function claveActividad(d) {
- return clavePartes(d.po,d.mail,d.responsable,d.tema);
+ return clavePartes(d.po,d.responsable,d.tema);
 }
 
 function combinarDatos(anterior,nuevo) {
@@ -1009,6 +1015,8 @@ async function importSeguimiento() {
   if (!wb.Sheets.Suministros || !wb.Sheets.Seguimiento)
    throw Error("Faltan las hojas Suministros o Seguimiento.");
 
+  // Leer datos actuales antes de comparar.
+  await loadExtra();
   const filas=leerHoja(wb.Sheets.Suministros);
   const tareas=leerHoja(wb.Sheets.Seguimiento);
 
@@ -1022,31 +1030,79 @@ async function importSeguimiento() {
   const propuestos=[];
   const vistos=new Set();
   const conflictos=[];
+  let anuladas=0;
 
   for (const r of filas) {
-   const po=String(campo(r,"#PO - Pedido Obr","PO","Pedido Obra")).trim();
+   const po=String(campo(
+    r,"#PO - Pedido Obr","PO","Pedido Obra"
+   )).trim();
    if (po && po!=="11") continue;
+
+   const estadoSp=normalizarTexto(campo(
+    r,
+    "Estado SP1 (Lib- S/L-Anulado)",
+    "Estado SP1",
+    "Estado SOLPED"
+   ));
+
+   if (estadoSp.includes("anulad") ||
+       estadoSp.includes("cancelad")) {
+    anuladas++;
+    continue;
+   }
 
    const d={
     po:"11",
-    ri:String(campo(r,"RI","Requisición de Ingeniería")).trim(),
+    ri:String(campo(
+     r,"RI","Requisición de Ingeniería"
+    )).trim(),
     sp:String(campo(r,"SP 1","SOLPED")).trim(),
-    ps:String(campo(r,"Pos SP1","Posicion SOLPED","Posicion")).trim(),
+    ps:String(campo(
+     r,"Pos SP1","Posicion SOLPED","Posicion"
+    )).trim(),
     ac:String(campo(r,"AC")).trim(),
-    pa:String(campo(r,"Pos AC","Posicion de AC")).trim(),
-    codigo:String(campo(r,"Cód Material SAP","Codigo SAP")).trim(),
-    descripcion:String(campo(r,"Texto Breve","Descripcion")).trim(),
+    pa:String(campo(
+     r,"Pos AC","Posicion de AC"
+    )).trim(),
+    codigo:String(campo(
+     r,"Cód Material SAP","Codigo SAP"
+    )).trim(),
+    descripcion:String(campo(
+     r,"Texto Breve","Descripcion"
+    )).trim(),
     proveedor:String(campo(r,"Proveedor")).trim(),
-    pedido:parseNumero(campo(r,"Cant Pedida","Cantidad del pedido")),
-    entregado_excel:parseNumero(campo(r,"Cant Entregada","Entrega")),
-    fecha_entrega:parseFecha(campo(r,
-     "Fecha Entrega según AC","Fecha de entrega")),
-    estado_ac:String(campo(r,"Estado AC","Estado de aprobación")).trim(),
-    comentarios:String(campo(r,"Comentarios","Observaciones")).trim()
+    pedido:parseNumero(campo(
+     r,"Cant Pedida","Cantidad del pedido"
+    )),
+    entregado_excel:parseNumero(campo(
+     r,"Cant Entregada","Entrega"
+    )),
+    fecha_entrega:parseFecha(campo(
+     r,"Fecha Entrega según AC","Fecha de entrega"
+    )),
+    estado_ac:String(campo(
+     r,"Estado AC","Estado de aprobación"
+    )).trim(),
+    comentarios:String(campo(
+     r,"Comentarios","Observaciones"
+    )).trim(),
+    estado_sp:String(campo(
+     r,"Estado SP1 (Lib- S/L-Anulado)",
+     "Estado SP1"
+    )).trim()
    };
 
    if (!d.sp && !d.ac) continue;
+
+   if ((!d.sp || !d.ps) && (!d.ac || !d.pa)) {
+    conflictos.push(
+     "Sin posición identificable: "+d.descripcion
+    );
+    continue;
+   }
+
    const k=claveSuministro(d);
+
    if (vistos.has(k)) {
     conflictos.push("Duplicado: "+k);
     continue;
@@ -1058,10 +1114,16 @@ async function importSeguimiento() {
     conflictos.push("Coincidencia ambigua: "+k);
     continue;
    }
+
    const previo=coincidencias[0];
+
    propuestos.push({
     id:previo?.id||"sum-"+k,
-    datos:combinarDatos(previo?.datos,d),
+    datos:{
+     ...combinarDatos(previo?.datos,d),
+     entregado_excel:d.entregado_excel,
+     pedido:d.pedido
+    },
     presente_ultima_importacion:true,
     previo
    });
@@ -1069,13 +1131,19 @@ async function importSeguimiento() {
 
   if (!propuestos.length)
    throw Error("No se encontraron suministros válidos.");
+
   if (conflictos.length)
-   throw Error("Importación detenida: "+conflictos.slice(0,5).join("; "));
+   throw Error(
+    "Importación detenida: "+
+    conflictos.slice(0,5).join("; ")
+   );
 
   const actualesTareas=new Map();
+
   for (const t of S.actividades) {
    const k=claveActividad(t.datos);
-   if (!actualesTareas.has(k)) actualesTareas.set(k,[]);
+   if (!actualesTareas.has(k))
+    actualesTareas.set(k,[]);
    actualesTareas.get(k).push(t);
   }
 
@@ -1084,32 +1152,60 @@ async function importSeguimiento() {
 
   for (let i=0;i<tareas.length;i++) {
    const r=tareas[i];
+
    const d={
-    po:String(campo(r,"PO","Columna1","Pedido Obra")).trim(),
-    mail:String(campo(r,"Mail","Correo")).trim(),
-    responsable:String(campo(r,"Responsable")).trim(),
-    tema:String(campo(r,"Tema","Actividad")).trim(),
-    importancia:String(campo(r,"Importancia","Prioridad")).trim(),
-    consultar:String(campo(r,"Consultar")).trim()
+    po:String(campo(
+     r,"PO","Columna1","Pedido Obra"
+    )).trim(),
+    responsable:String(campo(
+     r,"Responsable"
+    )).trim(),
+    tema:String(campo(
+     r,"Tema","Actividad"
+    )).trim(),
+    importancia:String(campo(
+     r,"Importancia","Prioridad"
+    )).trim(),
+    consultar:String(campo(
+     r,"Consultar"
+    )).trim(),
+    estatus_excel:String(campo(
+     r,"Estatus","Estado"
+    )).trim()
    };
+
    if (!d.tema) continue;
+
    const k=claveActividad(d);
+
    if (vistosTareas.has(k)) {
-    conflictos.push("Actividad duplicada: "+d.tema);
+    conflictos.push(
+     "Actividad duplicada: "+d.tema
+    );
     continue;
    }
+
    vistosTareas.add(k);
+
    const matches=actualesTareas.get(k)||[];
+
    if (matches.length>1) {
-    conflictos.push("Actividad ambigua: "+d.tema);
+    conflictos.push(
+     "Actividad ambigua: "+d.tema
+    );
     continue;
    }
+
    const previo=matches[0];
+
    propuestasTareas.push({
     id:previo?.id||"act-"+k,
     orden:i+1,
     datos:combinarDatos(previo?.datos,d),
-    estado:previo?.estado||"Pendiente",
+    estado:previo?.estado||
+     (["Pendiente","En proceso","Finalizado"]
+      .includes(d.estatus_excel)
+      ?d.estatus_excel:"Pendiente"),
     solped_generada:previo?.solped_generada||null,
     observaciones:previo?.observaciones||null,
     presente_ultima_importacion:true,
@@ -1118,29 +1214,57 @@ async function importSeguimiento() {
   }
 
   if (conflictos.length)
-   throw Error("Conflictos detectados: "+conflictos.join("; "));
-  if (!propuestasTareas.length && S.actividades.length)
-   throw Error("No se reconocieron las actividades existentes.");
+   throw Error(
+    "Conflictos detectados: "+
+    conflictos.join("; ")
+   );
 
-  const ids=new Set(propuestos.map(x=>x.id));
-  const idsTareas=new Set(propuestasTareas.map(x=>x.id));
+  if (!propuestasTareas.length &&
+      S.actividades.length)
+   throw Error(
+    "No se reconocieron las actividades existentes."
+   );
+
+  const ids=new Set(
+   propuestos.map(x=>x.id)
+  );
+  const idsTareas=new Set(
+   propuestasTareas.map(x=>x.id)
+  );
 
   const ausentes=S.suministros.filter(x=>
-   !ids.has(x.id)&&x.presente_ultima_importacion!==false
-  );
-  const ausentesTareas=S.actividades.filter(x=>
-   !idsTareas.has(x.id)&&x.presente_ultima_importacion!==false
+   !ids.has(x.id) &&
+   x.presente_ultima_importacion!==false
   );
 
-  const nuevos=propuestos.filter(x=>!x.previo).length;
-  const nuevosTareas=propuestasTareas.filter(x=>!x.previo).length;
-  const modificados=propuestos.filter(x=>x.previo &&
-   JSON.stringify(x.previo.datos)!==JSON.stringify(x.datos)).length;
-  const modificadosTareas=propuestasTareas.filter(x=>x.previo &&
-   JSON.stringify(x.previo.datos)!==JSON.stringify(x.datos)).length;
+  const ausentesTareas=S.actividades.filter(x=>
+   !idsTareas.has(x.id) &&
+   x.presente_ultima_importacion!==false
+  );
+
+  const nuevos=propuestos.filter(
+   x=>!x.previo
+  ).length;
+
+  const nuevosTareas=propuestasTareas.filter(
+   x=>!x.previo
+  ).length;
+
+  const modificados=propuestos.filter(x=>
+   x.previo &&
+   JSON.stringify(x.previo.datos)!==
+   JSON.stringify(x.datos)
+  ).length;
+
+  const modificadosTareas=propuestasTareas.filter(x=>
+   x.previo &&
+   JSON.stringify(x.previo.datos)!==
+   JSON.stringify(x.datos)
+  ).length;
 
   const resumen=
    "VISTA PREVIA DE IMPORTACIÓN\n\n"+
+   "SOLPED anuladas excluidas: "+anuladas+"\n"+
    "Suministros nuevos: "+nuevos+"\n"+
    "Suministros modificados: "+modificados+"\n"+
    "Suministros ausentes: "+ausentes.length+"\n\n"+
@@ -1150,79 +1274,113 @@ async function importSeguimiento() {
    "Los ausentes se conservarán. ¿Confirmar?";
 
   if (!confirm(resumen)) {
-   $("segMessage").textContent="Importación cancelada.";
+   $("segMessage").textContent=
+    "Importación cancelada.";
    return;
   }
 
   const {data:imp,error:impError}=await db
-   .from("seg_importaciones").insert({
+   .from("seg_importaciones")
+   .insert({
     modulo:"suministros",
     nombre_archivo:file.name,
     estado:"Preparando",
-    total_filas:propuestos.length+propuestasTareas.length,
+    total_filas:
+     propuestos.length+propuestasTareas.length,
     nuevos:nuevos+nuevosTareas,
-    actualizados:modificados+modificadosTareas,
-    ausentes:ausentes.length+ausentesTareas.length
-   }).select("id").single();
+    actualizados:
+     modificados+modificadosTareas,
+    ausentes:
+     ausentes.length+ausentesTareas.length
+   })
+   .select("id")
+   .single();
 
   if (impError) throw impError;
 
   try {
    for (const x of propuestos) {
-    const {error}=await db.from("seg_suministros").upsert({
-     id:x.id,
-     datos:x.datos,
-     presente_ultima_importacion:true,
-     ultima_importacion_id:imp.id,
-     actualizado_en:new Date().toISOString()
-    },{onConflict:"id"});
+    const {error}=await db
+     .from("seg_suministros")
+     .upsert({
+      id:x.id,
+      datos:x.datos,
+      presente_ultima_importacion:true,
+      ultima_importacion_id:imp.id,
+      actualizado_en:new Date().toISOString()
+     },{onConflict:"id"});
+
     if (error) throw error;
    }
 
    for (const x of propuestasTareas) {
-    const {error}=await db.from("seg_actividades").upsert({
-     id:x.id,orden:x.orden,datos:x.datos,
-     estado:x.estado,
-     solped_generada:x.solped_generada,
-     observaciones:x.observaciones,
-     presente_ultima_importacion:true,
-     ultima_importacion_id:imp.id
-    },{onConflict:"id"});
+    const {error}=await db
+     .from("seg_actividades")
+     .upsert({
+      id:x.id,
+      orden:x.orden,
+      datos:x.datos,
+      estado:x.estado,
+      solped_generada:x.solped_generada,
+      observaciones:x.observaciones,
+      presente_ultima_importacion:true,
+      ultima_importacion_id:imp.id
+     },{onConflict:"id"});
+
     if (error) throw error;
    }
 
    for (const x of ausentes) {
-    const {error}=await db.from("seg_suministros")
-     .update({presente_ultima_importacion:false})
+    const {error}=await db
+     .from("seg_suministros")
+     .update({
+      presente_ultima_importacion:false
+     })
      .eq("id",x.id);
+
     if (error) throw error;
    }
 
    for (const x of ausentesTareas) {
-    const {error}=await db.from("seg_actividades")
-     .update({presente_ultima_importacion:false})
+    const {error}=await db
+     .from("seg_actividades")
+     .update({
+      presente_ultima_importacion:false
+     })
      .eq("id",x.id);
+
     if (error) throw error;
    }
 
-   const {error:finError}=await db.from("seg_importaciones")
+   const {error:finError}=await db
+    .from("seg_importaciones")
     .update({
      estado:"Confirmada",
      confirmado_en:new Date().toISOString()
-    }).eq("id",imp.id);
+    })
+    .eq("id",imp.id);
+
    if (finError) throw finError;
 
   } catch(e) {
-   await db.from("seg_importaciones")
-    .update({estado:"Fallida"}).eq("id",imp.id);
-   throw Error("Importación interrumpida: "+e.message);
+   await db
+    .from("seg_importaciones")
+    .update({estado:"Fallida"})
+    .eq("id",imp.id);
+
+   throw Error(
+    "Importación interrumpida: "+e.message
+   );
   }
 
-  $("segMessage").textContent="Importación completada.";
+  $("segMessage").textContent=
+   "Importación completada.";
+
   await loadExtra();
 
  } catch(e) {
-  $("segMessage").textContent="Error: "+e.message;
+  $("segMessage").textContent=
+   "Error: "+e.message;
   alert(e.message);
  }
 }
@@ -1239,76 +1397,208 @@ function recepcionesDe(id) {
 
 function cantidades(item) {
  const pedido=parseNumero(item.datos.pedido);
- const conforme=recepcionesDe(item.id)
+
+ // El Excel contiene el acumulado oficial.
+ // Los remitos no se suman al total entregado.
+ const entregado=Math.max(
+  0,
+  parseNumero(item.datos.entregado_excel)
+ );
+
+ const remitos=recepcionesDe(item.id)
   .filter(r=>r.estado==="Conforme")
-  .reduce((s,r)=>s+parseNumero(r.cantidad),0);
+  .reduce(
+   (s,r)=>s+parseNumero(r.cantidad),
+   0
+  );
+
  return {
   pedido,
-  conforme,
-  pendiente:Math.max(0,pedido-conforme)
+  conforme:entregado,
+  remitos,
+  sinDocumentar:Math.max(
+   0,entregado-remitos
+  ),
+  excesoDocumentado:Math.max(
+   0,remitos-entregado
+  ),
+  pendiente:Math.max(
+   0,pedido-entregado
+  )
  };
 }
 
 function alertaSuministro(item) {
  if (item.presente_ultima_importacion===false)
   return "Ausente del Excel";
+
  const d=item.datos;
- if (!d.ac) return "Sin AC";
  const c=cantidades(item);
- if (c.pedido>0 && c.pendiente===0) return "Completo";
- if (c.conforme>0) return "Parcial";
+
+ if (c.excesoDocumentado>0.000001)
+  return "Revisar remitos";
+
+ if (!d.ac)
+  return "Sin AC";
+
+ if (c.pedido>0 && c.pendiente===0)
+  return "Completo";
+
  const dias=diasHasta(d.fecha_entrega);
- if (dias===null) return "Sin fecha";
- if (dias<0) return "Vencido";
- if (dias>=10 && dias<=15) return "Alta";
- if (dias>=16 && dias<=30) return "Preventiva";
+
+ if (dias!==null && dias<0)
+  return "Vencido";
+
+ if (dias!==null &&
+     dias>=10 && dias<=15)
+  return "Alta";
+
+ if (dias!==null &&
+     dias>=16 && dias<=30)
+  return "Preventiva";
+
+ if (c.conforme>0)
+  return "Parcial";
+
+ if (dias===null)
+  return "Sin fecha";
+
  return "Sin alerta";
 }
 
 function renderSuministros() {
- const busqueda=normalizarTexto($("segSearch").value);
- const todos=S.suministros;
- const alertas=["Vencido","Alta","Preventiva","Parcial",
-  "Ausente del Excel"];
+ const busqueda=normalizarTexto(
+  $("segSearch").value
+ );
+
+ const todos=S.suministros.filter(
+  x=>x.presente_ultima_importacion!==false
+ );
 
  const indicadores=[
-  ["Posiciones",todos.length,"todos"],
-  ["AC únicas",new Set(todos.map(x=>x.datos.ac).filter(Boolean)).size,"todos"],
-  ["Vencidos",todos.filter(x=>alertaSuministro(x)==="Vencido").length,"Vencido"],
-  ["Alerta 10–15 días",todos.filter(x=>alertaSuministro(x)==="Alta").length,"Alta"],
-  ["Alerta 16–30 días",todos.filter(x=>alertaSuministro(x)==="Preventiva").length,"Preventiva"],
-  ["Entregas parciales",todos.filter(x=>alertaSuministro(x)==="Parcial").length,"Parcial"],
-  ["Ausentes del Excel",todos.filter(x=>alertaSuministro(x)==="Ausente del Excel").length,"Ausente del Excel"]
+  [
+   "Posiciones",
+   todos.length,
+   "todos"
+  ],
+  [
+   "AC únicas",
+   new Set(
+    todos.map(x=>x.datos.ac).filter(Boolean)
+   ).size,
+   "todos"
+  ],
+  [
+   "Vencidos",
+   todos.filter(
+    x=>alertaSuministro(x)==="Vencido"
+   ).length,
+   "Vencido"
+  ],
+  [
+   "Alerta 10–15 días",
+   todos.filter(
+    x=>alertaSuministro(x)==="Alta"
+   ).length,
+   "Alta"
+  ],
+  [
+   "Alerta 16–30 días",
+   todos.filter(
+    x=>alertaSuministro(x)==="Preventiva"
+   ).length,
+   "Preventiva"
+  ],
+  [
+   "Entregas parciales",
+   todos.filter(x=>{
+    const c=cantidades(x);
+    return c.conforme>0 && c.pendiente>0;
+   }).length,
+   "Parcial"
+  ],
+  [
+   "Remitos por conciliar",
+   todos.filter(x=>{
+    const c=cantidades(x);
+    return c.sinDocumentar>0 ||
+     c.excesoDocumentado>0;
+   }).length,
+   "Revisar remitos"
+  ],
+  [
+   "Ausentes del Excel",
+   S.suministros.filter(
+    x=>x.presente_ultima_importacion===false
+   ).length,
+   "Ausente del Excel"
+  ]
  ];
 
- $("segKpis").innerHTML=indicadores.map(([titulo,n,filtro])=>`
-  <button class="card ${S.filtro===filtro?"active":""}"
-   data-filtro="${escapeHtml(filtro)}">
-   <small>${titulo}</small><strong>${n}</strong>
-  </button>
- `).join("");
+ $("segKpis").innerHTML=indicadores.map(
+  ([titulo,n,filtro])=>`
+   <button
+    class="card ${S.filtro===filtro?"active":""}"
+    data-filtro="${escapeHtml(filtro)}">
+    <small>${escapeHtml(titulo)}</small>
+    <strong>${n}</strong>
+   </button>
+  `
+ ).join("");
 
- $("segKpis").querySelectorAll("[data-filtro]").forEach(b=>{
-  b.onclick=()=>{
-   S.filtro=b.dataset.filtro;
-   renderSuministros();
-  };
- });
+ $("segKpis")
+  .querySelectorAll("[data-filtro]")
+  .forEach(b=>{
+   b.onclick=()=>{
+    S.filtro=b.dataset.filtro;
+    renderSuministros();
+   };
+  });
 
- const filtrados=todos.filter(x=>{
+ const filtrados=S.suministros.filter(x=>{
   const d=x.datos;
+
   const texto=normalizarTexto([
-   d.sp,d.ac,d.codigo,d.descripcion,d.proveedor,d.ri
+   d.sp,
+   d.ac,
+   d.codigo,
+   d.descripcion,
+   d.proveedor,
+   d.ri
   ].join(" "));
-  return (!busqueda||texto.includes(busqueda)) &&
-   (S.filtro==="todos"||alertaSuministro(x)===S.filtro);
+
+  const c=cantidades(x);
+
+  const coincide=
+   S.filtro==="Revisar remitos"
+    ? (
+     c.sinDocumentar>0 ||
+     c.excesoDocumentado>0
+    )
+    : S.filtro==="Parcial"
+     ? (
+      c.conforme>0 &&
+      c.pendiente>0
+     )
+     : S.filtro==="todos"
+      ? x.presente_ultima_importacion!==false
+      : alertaSuministro(x)===S.filtro;
+
+  return (
+   !busqueda || texto.includes(busqueda)
+  ) && coincide;
  });
 
  const grupos=new Map();
+
  for (const x of filtrados) {
-  const clave=S.grupo==="ac"?
-   (x.datos.ac||"Sin AC"):(x.datos.sp||"Sin SOLPED");
-  if (!grupos.has(clave)) grupos.set(clave,[]);
+  const clave=S.grupo==="ac"
+   ? (x.datos.ac||"Sin AC")
+   : (x.datos.sp||"Sin SOLPED");
+
+  if (!grupos.has(clave))
+   grupos.set(clave,[]);
+
   grupos.get(clave).push(x);
  }
 
@@ -1318,46 +1608,129 @@ function renderSuministros() {
  for (const [clave,items] of grupos) {
   const detalle=document.createElement("details");
   detalle.className="supply-card";
+
   const cabecera=document.createElement("summary");
-  cabecera.textContent=(S.grupo==="ac"?"AC ":"SOLPED ")+
+  cabecera.textContent=
+   (S.grupo==="ac"?"AC ":"SOLPED ")+
    clave+" · "+items.length+" posiciones";
+
   detalle.append(cabecera);
 
   for (const item of items) {
    const d=item.datos;
    const c=cantidades(item);
+
    const fila=document.createElement("div");
    fila.className="material-row";
+
    fila.innerHTML=`
-    <strong>${escapeHtml(d.descripcion||"Sin descripción")}</strong>
+    <strong>
+     ${escapeHtml(d.descripcion||"Sin descripción")}
+    </strong>
+
     <p class="note">
-     SOLPED ${escapeHtml(d.sp||"—")} · Pos. ${escapeHtml(d.ps||"—")}
-     · AC ${escapeHtml(d.ac||"—")} · Pos. ${escapeHtml(d.pa||"—")}
+     SOLPED ${escapeHtml(d.sp||"—")}
+     · Pos. ${escapeHtml(d.ps||"—")}
+     · AC ${escapeHtml(d.ac||"—")}
+     · Pos. ${escapeHtml(d.pa||"—")}
     </p>
-    <p>Proveedor: ${escapeHtml(d.proveedor||"—")}</p>
-    <p>Fecha comprometida: ${fechaVisible(d.fecha_entrega)}</p>
-    <p>Pedido: <b>${c.pedido}</b> ·
-       Conforme: <b>${c.conforme}</b> ·
-       Saldo: <b>${c.pendiente}</b></p>
-    <p><span class="badge plazo">${escapeHtml(alertaSuministro(item))}</span></p>
+
+    <p>
+     Proveedor:
+     ${escapeHtml(d.proveedor||"—")}
+    </p>
+
+    <p>
+     Fecha comprometida:
+     ${fechaVisible(d.fecha_entrega)}
+    </p>
+
+    <p>
+     Pedido: <b>${c.pedido}</b>
+     · Entregado según Excel:
+     <b>${c.conforme}</b>
+     · Saldo: <b>${c.pendiente}</b>
+    </p>
+
+    <p>
+     Con remito conforme:
+     <b>${c.remitos}</b>
+     · Sin documentar:
+     <b>${c.sinDocumentar}</b>
+
+     ${c.excesoDocumentado
+      ? `
+       · <b style="color:var(--red)">
+        Exceso documentado:
+        ${c.excesoDocumentado}
+       </b>
+      `
+      : ""
+     }
+    </p>
+
+    <p>
+     <span class="badge plazo">
+      ${escapeHtml(alertaSuministro(item))}
+     </span>
+    </p>
+
     <div class="rowline">
-     <button data-accion="historial" class="detail">Entregas</button>
-     <button data-accion="adjuntos" class="detail">Adjuntos</button>
-     ${isAdmin?'<button data-accion="recepcion" class="primary">Nueva entrega</button>':""}
+     <button
+      data-accion="historial"
+      class="detail">
+      Entregas
+     </button>
+
+     <button
+      data-accion="adjuntos"
+      class="detail">
+      Adjuntos
+     </button>
+
+     ${isAdmin
+      ? `
+       <button
+        data-accion="recepcion"
+        class="primary">
+        Registrar remito
+       </button>
+      `
+      : ""
+     }
     </div>
    `;
-   fila.querySelector('[data-accion="historial"]').onclick=
-    ()=>verRecepciones(item);
-   fila.querySelector('[data-accion="adjuntos"]').onclick=
-    ()=>abrirAdjuntos("material",item.id,d.descripcion);
-   const boton=fila.querySelector('[data-accion="recepcion"]');
-   if (boton) boton.onclick=()=>nuevaRecepcion(item);
+
+   fila.querySelector(
+    '[data-accion="historial"]'
+   ).onclick=()=>verRecepciones(item);
+
+   fila.querySelector(
+    '[data-accion="adjuntos"]'
+   ).onclick=()=>abrirAdjuntos(
+    "material",
+    item.id,
+    d.descripcion
+   );
+
+   const boton=fila.querySelector(
+    '[data-accion="recepcion"]'
+   );
+
+   if (boton)
+    boton.onclick=()=>nuevaRecepcion(item);
+
    detalle.append(fila);
   }
+
   contenedor.append(detalle);
  }
+
  $("segCount").textContent=
-  filtrados.length+" posiciones en "+grupos.size+" grupos.";
+  filtrados.length+
+  " posiciones en "+
+  grupos.size+
+  " grupos.";
 }
 
 function abrirModal(titulo,html) {
@@ -1365,34 +1738,92 @@ function abrirModal(titulo,html) {
  $("extraBody").innerHTML=html;
  $("extraOverlay").classList.remove("hidden");
 }
+
 function closeExtra() {
  $("extraOverlay").classList.add("hidden");
 }
 
+/* ============================================
+   REGISTRO DE REMITOS
+============================================ */
+
 function nuevaRecepcion(item) {
  if (!isAdmin) return;
+
  const d=item.datos;
  const c=cantidades(item);
  const hoy=new Date().toISOString().slice(0,10);
 
- abrirModal("Nueva entrega parcial",`
-  <p><b>${escapeHtml(d.descripcion)}</b></p>
-  <p>AC ${escapeHtml(d.ac)} · Posición ${escapeHtml(d.pa)}</p>
-  <p>Pedido: ${c.pedido} · Saldo: ${c.pendiente}</p>
-  <label>Fecha *</label><input id="rFecha" type="date" value="${hoy}">
-  <label>Remito *</label><input id="rRemito">
+ abrirModal("Documentar entrega con remito",`
+  <p>
+   <b>${escapeHtml(d.descripcion)}</b>
+  </p>
+
+  <p>
+   AC ${escapeHtml(d.ac)}
+   · Posición ${escapeHtml(d.pa)}
+  </p>
+
+  <p>
+   Pedido: ${c.pedido}
+   · Entregado según Excel: ${c.conforme}
+   · Saldo: ${c.pendiente}
+  </p>
+
+  <p>
+   <b>Ya documentado:</b> ${c.remitos}
+   · <b>Pendiente de remito:</b>
+   ${c.sinDocumentar}
+  </p>
+
+  <p class="note">
+   Registrar un remito no aumenta el acumulado
+   del Excel. Si recibiste más material, primero
+   actualizá e importá el Excel.
+  </p>
+
+  <label>Fecha *</label>
+  <input
+   id="rFecha"
+   type="date"
+   value="${hoy}">
+
+  <label>Remito *</label>
+  <input id="rRemito">
+
   <label>Cantidad *</label>
-  <input id="rCantidad" type="number" min="0.000001" step="any">
+  <input
+   id="rCantidad"
+   type="number"
+   min="0.000001"
+   step="any">
+
   <label>Estado</label>
   <select id="rEstado">
    <option>Conforme</option>
    <option>Observado</option>
    <option>Rechazado</option>
   </select>
+
   <label>Fecha comprometida del saldo</label>
   <input id="rSaldo" type="date">
-  <label>Observaciones</label><textarea id="rObs"></textarea>
-  <button id="rGuardar" class="primary">Guardar entrega</button>
+
+  <label>Observaciones</label>
+  <textarea id="rObs"></textarea>
+
+  <label>
+   Adjuntar remito
+   (PDF, JPG o PNG; opcional)
+  </label>
+
+  <input
+   id="rArchivo"
+   type="file"
+   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+
+  <button id="rGuardar" class="primary">
+   Guardar remito
+  </button>
  `);
 
  $("rGuardar").onclick=async()=>{
@@ -1401,66 +1832,233 @@ function nuevaRecepcion(item) {
   const fecha=$("rFecha").value;
   const estado=$("rEstado").value;
 
-  if (!fecha||!remito||!Number.isFinite(cantidad)||cantidad<=0)
-   return alert("Completá fecha, remito y cantidad válida.");
-  if (estado==="Conforme" && cantidad>c.pendiente)
-   return alert("La cantidad supera el saldo pendiente.");
+  if (
+   !fecha ||
+   !remito ||
+   !Number.isFinite(cantidad) ||
+   cantidad<=0
+  ) {
+   return alert(
+    "Completá fecha, remito y cantidad válida."
+   );
+  }
 
-  const {data,error}=await db.from("seg_recepciones")
+  if (
+   estado==="Conforme" &&
+   cantidad>c.sinDocumentar+0.000001
+  ) {
+   return alert(
+    "El remito supera la cantidad entregada "+
+    "sin documentar según el Excel. "+
+    "Actualizá primero el Excel si recibiste "+
+    "más unidades."
+   );
+  }
+
+  if (recepcionesDe(item.id).some(r=>
+   normalizarTexto(r.remito)===
+    normalizarTexto(remito) &&
+   r.estado===estado &&
+   parseNumero(r.cantidad)===cantidad
+  )) {
+   return alert(
+    "Ya existe un remito con ese número, "+
+    "cantidad y estado para este suministro."
+   );
+  }
+
+  const archivo=$("rArchivo").files[0];
+
+  if (
+   archivo &&
+   (
+    archivo.size>25*1024*1024 ||
+    ![
+     "application/pdf",
+     "image/jpeg",
+     "image/png"
+    ].includes(archivo.type)
+   )
+  ) {
+   return alert(
+    "Adjuntá un PDF, JPG o PNG de hasta 25 MB."
+   );
+  }
+
+  $("rGuardar").disabled=true;
+
+  const {data,error}=await db
+   .from("seg_recepciones")
    .insert({
     suministro_id:item.id,
     ac:d.ac||"",
     posicion_ac:d.pa||"",
     solped:d.sp||null,
     posicion_solped:d.ps||null,
-    fecha,remito,cantidad,estado,
+    fecha,
+    remito,
+    cantidad,
+    estado,
     fecha_saldo:$("rSaldo").value||null,
     observaciones:$("rObs").value.trim()
-   }).select("id").single();
+   })
+   .select("id")
+   .single();
 
-  if (error) return alert(error.message);
+  if (error) {
+   $("rGuardar").disabled=false;
+   return alert(error.message);
+  }
 
   await db.from("seg_auditoria").insert({
    entidad:"recepcion",
    referencia:data.id,
    accion:"alta",
-   despues:{remito,fecha,cantidad,estado}
+   despues:{
+    remito,
+    fecha,
+    cantidad,
+    estado
+   }
   });
+
+  let errorAdjunto="";
+
+  if (archivo) {
+   const ruta=
+    crypto.randomUUID()+"/"+
+    archivo.name.replace(
+     /[^a-zA-Z0-9._-]/g,
+     "_"
+    );
+
+   const subida=await db.storage
+    .from("seg-documentos")
+    .upload(ruta,archivo);
+
+   if (subida.error) {
+    errorAdjunto=subida.error.message;
+   } else {
+    const meta=await db
+     .from("seg_adjuntos")
+     .insert({
+      ambito:"recepcion",
+      referencia:data.id,
+      categoria:"Remito",
+      nombre:archivo.name,
+      ruta,
+      descripcion:"Remito "+remito
+     });
+
+    if (meta.error) {
+     errorAdjunto=meta.error.message;
+
+     await db.storage
+      .from("seg-documentos")
+      .remove([ruta]);
+    }
+   }
+  }
 
   closeExtra();
   await loadExtra();
-  if (confirm("Entrega guardada. ¿Adjuntar remito o documentos?"))
-   abrirAdjuntos("recepcion",data.id,"Remito "+remito);
+
+  if (errorAdjunto) {
+   alert(
+    "Remito registrado, pero falló "+
+    "el adjunto: "+errorAdjunto
+   );
+  } else if (
+   !archivo &&
+   confirm(
+    "Remito registrado. "+
+    "¿Querés adjuntar el archivo ahora?"
+   )
+  ) {
+   abrirAdjuntos(
+    "recepcion",
+    data.id,
+    "Remito "+remito
+   );
+  }
  };
 }
 
 function verRecepciones(item) {
  const registros=recepcionesDe(item.id);
- abrirModal("Historial de entregas",`
-  <p>${escapeHtml(item.datos.descripcion)}</p>
-  ${registros.length?`
-   <table><thead><tr>
-    <th>Fecha</th><th>Remito</th><th>Cantidad</th>
-    <th>Estado</th><th>Archivo</th>
-   </tr></thead><tbody>
-   ${registros.map((r,i)=>`
-    <tr>
-     <td>${fechaVisible(r.fecha)}</td>
-     <td>${escapeHtml(r.remito)}</td>
-     <td>${r.cantidad}</td>
-     <td>${escapeHtml(r.estado)}</td>
-     <td><button data-i="${i}" class="detail">Ver adjuntos</button></td>
-    </tr>
-   `).join("")}
-   </tbody></table>
-  `:"<p>No hay entregas registradas.</p>"}
+ const c=cantidades(item);
+
+ abrirModal("Historial de remitos",`
+  <p>
+   ${escapeHtml(item.datos.descripcion)}
+  </p>
+
+  <p>
+   <b>Excel:</b> ${c.conforme}
+   · <b>Remitos conformes:</b> ${c.remitos}
+   · <b>Sin documentar:</b> ${c.sinDocumentar}
+
+   ${c.excesoDocumentado
+    ? `
+     · <b>Exceso documentado:
+      ${c.excesoDocumentado}
+     </b>
+    `
+    : ""
+   }
+  </p>
+
+  ${registros.length
+   ? `
+    <table>
+     <thead>
+      <tr>
+       <th>Fecha</th>
+       <th>Remito</th>
+       <th>Cantidad</th>
+       <th>Estado</th>
+       <th>Archivo</th>
+      </tr>
+     </thead>
+
+     <tbody>
+      ${registros.map((r,i)=>`
+       <tr>
+        <td>${fechaVisible(r.fecha)}</td>
+        <td>${escapeHtml(r.remito)}</td>
+        <td>${r.cantidad}</td>
+        <td>${escapeHtml(r.estado)}</td>
+        <td>
+         <button
+          data-i="${i}"
+          class="detail">
+          Ver adjuntos
+         </button>
+        </td>
+       </tr>
+      `).join("")}
+     </tbody>
+    </table>
+   `
+   : "<p>No hay entregas registradas.</p>"
+  }
  `);
- $("extraBody").querySelectorAll("[data-i]").forEach(b=>{
-  b.onclick=()=>{
-   const r=registros[Number(b.dataset.i)];
-   abrirAdjuntos("recepcion",r.id,r.remito);
-  };
- });
+
+ $("extraBody")
+  .querySelectorAll("[data-i]")
+  .forEach(b=>{
+   b.onclick=()=>{
+    const r=registros[
+     Number(b.dataset.i)
+    ];
+
+    abrirAdjuntos(
+     "recepcion",
+     r.id,
+     r.remito
+    );
+   };
+  });
 }
 
 /* ============================================
@@ -1469,42 +2067,79 @@ function verRecepciones(item) {
 
 function abrirAdjuntos(ambito,referencia,titulo) {
  const lista=S.adjuntos.filter(x=>
-  x.ambito===ambito && x.referencia===referencia
+  x.ambito===ambito &&
+  x.referencia===referencia
  );
 
  abrirModal("Adjuntos · "+titulo,`
   <div id="listaAdjuntos"></div>
-  ${isAdmin?`
-   <label>Categoría</label>
-   <select id="aCategoria">
-    <option>Ingeniería</option>
-    <option>Mails y comunicaciones</option>
-    <option>Comerciales</option>
-    <option>Otros</option>
-   </select>
-   <label>Descripción</label><input id="aDescripcion">
-   <label>Archivos</label><input id="aArchivos" type="file" multiple>
-   <button class="primary" id="aSubir">Adjuntar</button>
-  `:""}
+
+  ${isAdmin
+   ? `
+    <label>Categoría</label>
+    <select id="aCategoria">
+     <option>Remito</option>
+     <option>Ingeniería</option>
+     <option>Mails y comunicaciones</option>
+     <option>Comerciales</option>
+     <option>Otros</option>
+    </select>
+
+    <label>Descripción</label>
+    <input id="aDescripcion">
+
+    <label>Archivos</label>
+    <input
+     id="aArchivos"
+     type="file"
+     multiple>
+
+    <button
+     class="primary"
+     id="aSubir">
+     Adjuntar
+    </button>
+   `
+   : ""
+  }
  `);
 
  const contenedor=$("listaAdjuntos");
- if (!lista.length) contenedor.textContent="Sin archivos adjuntos.";
+
+ if (!lista.length)
+  contenedor.textContent=
+   "Sin archivos adjuntos.";
 
  for (const archivo of lista) {
   const fila=document.createElement("div");
   fila.className="rowline";
+
   const nombre=document.createElement("span");
-  nombre.textContent=archivo.nombre+" · "+archivo.categoria;
+  nombre.textContent=
+   archivo.nombre+" · "+archivo.categoria;
+
   const boton=document.createElement("button");
   boton.className="detail";
   boton.textContent="Abrir";
+
   boton.onclick=async()=>{
    const {data,error}=await db.storage
-    .from("seg-documentos").createSignedUrl(archivo.ruta,60);
-   if (error) return alert(error.message);
-   window.open(data.signedUrl,"_blank","noopener");
+    .from("seg-documentos")
+    .createSignedUrl(
+     archivo.ruta,
+     60
+    );
+
+   if (error)
+    return alert(error.message);
+
+   window.open(
+    data.signedUrl,
+    "_blank",
+    "noopener"
+   );
   };
+
   fila.append(nombre,boton);
   contenedor.append(fila);
  }
@@ -1512,36 +2147,61 @@ function abrirAdjuntos(ambito,referencia,titulo) {
  if (!isAdmin) return;
 
  $("aSubir").onclick=async()=>{
-  const archivos=[...$("aArchivos").files];
-  if (!archivos.length) return alert("Seleccioná archivos.");
+  const archivos=[
+   ...$("aArchivos").files
+  ];
+
+  if (!archivos.length)
+   return alert("Seleccioná archivos.");
 
   for (const archivo of archivos) {
    if (archivo.size>25*1024*1024)
-    return alert("El archivo supera 25 MB.");
+    return alert(
+     "El archivo supera 25 MB."
+    );
 
-   const ruta=crypto.randomUUID()+"/"+
-    archivo.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+   const ruta=
+    crypto.randomUUID()+"/"+
+    archivo.name.replace(
+     /[^a-zA-Z0-9._-]/g,
+     "_"
+    );
 
    const {error}=await db.storage
-    .from("seg-documentos").upload(ruta,archivo);
-   if (error) return alert(error.message);
+    .from("seg-documentos")
+    .upload(ruta,archivo);
 
-   const {error:metaError}=await db.from("seg_adjuntos")
+   if (error)
+    return alert(error.message);
+
+   const {error:metaError}=await db
+    .from("seg_adjuntos")
     .insert({
-     ambito,referencia,
+     ambito,
+     referencia,
      categoria:$("aCategoria").value,
      nombre:archivo.name,
      ruta,
-     descripcion:$("aDescripcion").value.trim()
+     descripcion:
+      $("aDescripcion").value.trim()
     });
 
    if (metaError) {
-    await db.storage.from("seg-documentos").remove([ruta]);
+    await db.storage
+     .from("seg-documentos")
+     .remove([ruta]);
+
     return alert(metaError.message);
    }
   }
+
   await loadExtra();
-  abrirAdjuntos(ambito,referencia,titulo);
+
+  abrirAdjuntos(
+   ambito,
+   referencia,
+   titulo
+  );
  };
 }
 
@@ -1555,51 +2215,127 @@ function renderActividades() {
 
  for (const tarea of S.actividades) {
   const d=tarea.datos;
+
   const card=document.createElement("div");
   card.className="task-card";
 
   card.innerHTML=`
    <div class="rowline">
-    <strong>${escapeHtml(d.tema||"Actividad")}</strong>
-    <span class="badge plazo">${escapeHtml(tarea.estado)}</span>
+    <strong>
+     ${escapeHtml(d.tema||"Actividad")}
+    </strong>
+
+    <span class="badge plazo">
+     ${escapeHtml(tarea.estado)}
+    </span>
    </div>
-   <p class="note">Responsable: ${escapeHtml(d.responsable||"—")}</p>
-   <p class="note">Prioridad: ${escapeHtml(d.importancia||"—")}</p>
-   ${tarea.presente_ultima_importacion===false?
-    '<p class="badge sinfecha">Ausente del último Excel</p>':""}
-   ${tarea.solped_generada?
-    "<p>SOLPED generada: "+escapeHtml(tarea.solped_generada)+"</p>":""}
+
+   <p class="note">
+    Responsable:
+    ${escapeHtml(d.responsable||"—")}
+   </p>
+
+   <p class="note">
+    Prioridad:
+    ${escapeHtml(d.importancia||"—")}
+   </p>
+
+   ${tarea.presente_ultima_importacion===false
+    ? `
+     <p class="badge sinfecha">
+      Ausente del último Excel
+     </p>
+    `
+    : ""
+   }
+
+   ${tarea.solped_generada
+    ? `
+     <p>
+      SOLPED generada:
+      ${escapeHtml(tarea.solped_generada)}
+     </p>
+    `
+    : ""
+   }
+
    <div class="rowline">
-    <button class="detail" data-accion="archivos">Correos y documentos</button>
-    ${isAdmin?'<button class="detail" data-accion="editar">Actualizar</button>':""}
+    <button
+     class="detail"
+     data-accion="archivos">
+     Correos y documentos
+    </button>
+
+    ${isAdmin
+     ? `
+      <button
+       class="detail"
+       data-accion="editar">
+       Actualizar
+      </button>
+     `
+     : ""
+    }
    </div>
   `;
 
-  card.querySelector('[data-accion="archivos"]').onclick=
-   ()=>abrirAdjuntos("actividad",tarea.id,d.tema);
-  const editar=card.querySelector('[data-accion="editar"]');
-  if (editar) editar.onclick=()=>editarActividad(tarea);
+  card.querySelector(
+   '[data-accion="archivos"]'
+  ).onclick=()=>abrirAdjuntos(
+   "actividad",
+   tarea.id,
+   d.tema
+  );
+
+  const editar=card.querySelector(
+   '[data-accion="editar"]'
+  );
+
+  if (editar)
+   editar.onclick=()=>editarActividad(tarea);
+
   contenedor.append(card);
  }
- $("taskCount").textContent=S.actividades.length+" actividades.";
+
+ $("taskCount").textContent=
+  S.actividades.length+
+  " actividades.";
 }
 
 function editarActividad(tarea) {
  if (!isAdmin) return;
+
  abrirModal("Actualizar actividad",`
-  <p><b>${escapeHtml(tarea.datos.tema)}</b></p>
+  <p>
+   <b>${escapeHtml(tarea.datos.tema)}</b>
+  </p>
+
   <label>Estado</label>
   <select id="tEstado">
    <option>Pendiente</option>
    <option>En proceso</option>
    <option>Finalizado</option>
   </select>
+
   <label>SOLPED generada</label>
-  <input id="tSolped" value="${escapeHtml(tarea.solped_generada||"")}">
+  <input
+   id="tSolped"
+   value="${escapeHtml(
+    tarea.solped_generada||""
+   )}">
+
   <label>Observaciones</label>
-  <textarea id="tObs">${escapeHtml(tarea.observaciones||"")}</textarea>
-  <button id="tGuardar" class="primary">Guardar</button>
+  <textarea id="tObs">${
+   escapeHtml(tarea.observaciones||"")
+  }</textarea>
+
+  <button
+   id="tGuardar"
+   class="primary">
+   Guardar
+  </button>
  `);
+
  $("tEstado").value=tarea.estado;
 
  $("tGuardar").onclick=async()=>{
@@ -1607,10 +2343,17 @@ function editarActividad(tarea) {
   const solped=$("tSolped").value.trim();
   const observaciones=$("tObs").value.trim();
 
-  if (estado==="Finalizado" &&
-      /generar\s+(sp|solped)/i.test(tarea.datos.tema) &&
-      !solped)
-   return alert("Ingresá el número de SOLPED generada.");
+  if (
+   estado==="Finalizado" &&
+   /generar\s+(sp|solped)/i.test(
+    tarea.datos.tema
+   ) &&
+   !solped
+  ) {
+   return alert(
+    "Ingresá el número de SOLPED generada."
+   );
+  }
 
   const cambios={
    estado,
@@ -1618,9 +2361,14 @@ function editarActividad(tarea) {
    observaciones,
    actualizado_en:new Date().toISOString()
   };
-  const {error}=await db.from("seg_actividades")
-   .update(cambios).eq("id",tarea.id);
-  if (error) return alert(error.message);
+
+  const {error}=await db
+   .from("seg_actividades")
+   .update(cambios)
+   .eq("id",tarea.id);
+
+  if (error)
+   return alert(error.message);
 
   await db.from("seg_auditoria").insert({
    entidad:"actividad",
@@ -1644,81 +2392,135 @@ function editarActividad(tarea) {
 ============================================ */
 
 function exportBackup() {
- if (!isAdmin) return alert("Solo administración puede exportar.");
+ if (!isAdmin)
+  return alert(
+   "Solo administración puede exportar."
+  );
 
  const wb=XLSX.utils.book_new();
 
  function agregar(nombre,filas) {
   const ws=XLSX.utils.json_to_sheet(
-   filas.length?filas:[{"Sin registros":""}]
+   filas.length
+    ? filas
+    : [{"Sin registros":""}]
   );
-  XLSX.utils.book_append_sheet(wb,ws,nombre);
+
+  XLSX.utils.book_append_sheet(
+   wb,
+   ws,
+   nombre
+  );
  }
 
- agregar("Suministros",S.suministros.map(x=>({
-  id:x.id,...x.datos,
-  presente_ultima_importacion:x.presente_ultima_importacion,
-  alerta:alertaSuministro(x)
- })));
+ agregar(
+  "Suministros",
+  S.suministros.map(x=>({
+   id:x.id,
+   ...x.datos,
+   presente_ultima_importacion:
+    x.presente_ultima_importacion,
+   alerta:alertaSuministro(x)
+  }))
+ );
 
- agregar("Entregas",S.recepciones.map(x=>({
-  id:x.id,
-  suministro_id:x.suministro_id,
-  ac:x.ac,
-  posicion_ac:x.posicion_ac,
-  solped:x.solped,
-  fecha:x.fecha,
-  remito:x.remito,
-  cantidad:x.cantidad,
-  estado:x.estado,
-  observaciones:x.observaciones,
-  fecha_saldo:x.fecha_saldo,
-  anulado:x.anulado
- })));
+ agregar(
+  "Entregas",
+  S.recepciones.map(x=>({
+   id:x.id,
+   suministro_id:x.suministro_id,
+   ac:x.ac,
+   posicion_ac:x.posicion_ac,
+   solped:x.solped,
+   fecha:x.fecha,
+   remito:x.remito,
+   cantidad:x.cantidad,
+   estado:x.estado,
+   observaciones:x.observaciones,
+   fecha_saldo:x.fecha_saldo,
+   anulado:x.anulado
+  }))
+ );
 
- agregar("Saldos",S.suministros.map(x=>({
-  id:x.id,
-  solped:x.datos.sp,
-  ac:x.datos.ac,
-  posicion_ac:x.datos.pa,
-  descripcion:x.datos.descripcion,
-  pedido:cantidades(x).pedido,
-  recibido:cantidades(x).conforme,
-  pendiente:cantidades(x).pendiente
- })));
+ agregar(
+  "Saldos",
+  S.suministros.map(x=>({
+   id:x.id,
+   solped:x.datos.sp,
+   ac:x.datos.ac,
+   posicion_ac:x.datos.pa,
+   descripcion:x.datos.descripcion,
+   pedido:cantidades(x).pedido,
+   recibido_excel:cantidades(x).conforme,
+   documentado_remitos:cantidades(x).remitos,
+   sin_documentar:cantidades(x).sinDocumentar,
+   exceso_documentado:
+    cantidades(x).excesoDocumentado,
+   pendiente:cantidades(x).pendiente
+  }))
+ );
 
- agregar("Actividades",S.actividades.map(x=>({
-  id:x.id,orden:x.orden,...x.datos,
-  estado:x.estado,
-  solped_generada:x.solped_generada,
-  observaciones:x.observaciones
- })));
+ agregar(
+  "Actividades",
+  S.actividades.map(x=>({
+   id:x.id,
+   orden:x.orden,
+   ...x.datos,
+   estado:x.estado,
+   solped_generada:x.solped_generada,
+   observaciones:x.observaciones
+  }))
+ );
 
- agregar("Adjuntos",S.adjuntos.map(x=>({
-  ambito:x.ambito,
-  referencia:x.referencia,
-  categoria:x.categoria,
-  nombre:x.nombre,
-  descripcion:x.descripcion,
-  ruta:x.ruta
- })));
+ agregar(
+  "Adjuntos",
+  S.adjuntos.map(x=>({
+   ambito:x.ambito,
+   referencia:x.referencia,
+   categoria:x.categoria,
+   nombre:x.nombre,
+   descripcion:x.descripcion,
+   ruta:x.ruta
+  }))
+ );
 
- XLSX.writeFile(wb,"Respaldo_PO11_"+
-  new Date().toISOString().slice(0,10)+".xlsx");
+ XLSX.writeFile(
+  wb,
+  "Respaldo_PO11_"+
+  new Date().toISOString().slice(0,10)+
+  ".xlsx"
+ );
 }
 
 /* ============================================
    INICIALIZACIÓN
 ============================================ */
 
-$("search").addEventListener("input",renderIngenieria);
-$("specialty").addEventListener("change",renderIngenieria);
-$("dateFilter").addEventListener("change",renderIngenieria);
-$("password").addEventListener("keydown",e=>{
- if (e.key==="Enter") login();
-});
+$("search").addEventListener(
+ "input",
+ renderIngenieria
+);
+
+$("specialty").addEventListener(
+ "change",
+ renderIngenieria
+);
+
+$("dateFilter").addEventListener(
+ "change",
+ renderIngenieria
+);
+
+$("password").addEventListener(
+ "keydown",
+ e=>{
+  if (e.key==="Enter")
+   login();
+ }
+);
 
 initialize();
+
 </script>
 </body>
 </html>
